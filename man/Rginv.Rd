@@ -9,6 +9,9 @@ Rginv(m)
 \arguments{
 \item{m}{matrix}
 }
+\value{
+matrix inverse of m
+}
 \description{
 R's implementation of the Moore-Penrose pseudo matrix inverse
 }

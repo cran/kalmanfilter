@@ -33,33 +33,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// likelihood
-double likelihood(Rcpp::List& sp, const arma::mat& yt, const arma::mat& Xo, const arma::mat& Xs, arma::mat& w);
-RcppExport SEXP _kalmanfilter_likelihood(SEXP spSEXP, SEXP ytSEXP, SEXP XoSEXP, SEXP XsSEXP, SEXP wSEXP) {
+// contains
+bool contains(std::string s, Rcpp::List L);
+RcppExport SEXP _kalmanfilter_contains(SEXP sSEXP, SEXP LSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::List& >::type sp(spSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type yt(ytSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type Xo(XoSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type Xs(XsSEXP);
-    Rcpp::traits::input_parameter< arma::mat& >::type w(wSEXP);
-    rcpp_result_gen = Rcpp::wrap(likelihood(sp, yt, Xo, Xs, w));
+    Rcpp::traits::input_parameter< std::string >::type s(sSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type L(LSEXP);
+    rcpp_result_gen = Rcpp::wrap(contains(s, L));
     return rcpp_result_gen;
 END_RCPP
 }
-// filter
-Rcpp::List filter(Rcpp::List& sp, const arma::mat& yt, const arma::mat& Xo, const arma::mat& Xs, bool smooth);
-RcppExport SEXP _kalmanfilter_filter(SEXP spSEXP, SEXP ytSEXP, SEXP XoSEXP, SEXP XsSEXP, SEXP smoothSEXP) {
+// kalman_filter
+Rcpp::List kalman_filter(Rcpp::List& ssm, const arma::mat& yt, Rcpp::Nullable<Rcpp::NumericMatrix> Xo, Rcpp::Nullable<Rcpp::NumericMatrix> Xs, Rcpp::Nullable<Rcpp::NumericMatrix> weight, bool smooth);
+RcppExport SEXP _kalmanfilter_kalman_filter(SEXP ssmSEXP, SEXP ytSEXP, SEXP XoSEXP, SEXP XsSEXP, SEXP weightSEXP, SEXP smoothSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< Rcpp::List& >::type sp(spSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List& >::type ssm(ssmSEXP);
     Rcpp::traits::input_parameter< const arma::mat& >::type yt(ytSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type Xo(XoSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type Xs(XsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericMatrix> >::type Xo(XoSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericMatrix> >::type Xs(XsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericMatrix> >::type weight(weightSEXP);
     Rcpp::traits::input_parameter< bool >::type smooth(smoothSEXP);
-    rcpp_result_gen = Rcpp::wrap(filter(sp, yt, Xo, Xs, smooth));
+    rcpp_result_gen = Rcpp::wrap(kalman_filter(ssm, yt, Xo, Xs, weight, smooth));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -67,8 +65,8 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_kalmanfilter_Rginv", (DL_FUNC) &_kalmanfilter_Rginv, 1},
     {"_kalmanfilter_gen_inv", (DL_FUNC) &_kalmanfilter_gen_inv, 1},
-    {"_kalmanfilter_likelihood", (DL_FUNC) &_kalmanfilter_likelihood, 5},
-    {"_kalmanfilter_filter", (DL_FUNC) &_kalmanfilter_filter, 5},
+    {"_kalmanfilter_contains", (DL_FUNC) &_kalmanfilter_contains, 2},
+    {"_kalmanfilter_kalman_filter", (DL_FUNC) &_kalmanfilter_kalman_filter, 6},
     {NULL, NULL, 0}
 };
 

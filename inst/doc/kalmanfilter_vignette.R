@@ -6,10 +6,7 @@ knitr::opts_chunk$set(
 )
 
 ## -----------------------------------------------------------------------------
-#  lnl = kalman_lik(ssm, yt, Xo, Xs, w)
-
-## -----------------------------------------------------------------------------
-#  f = kalman_filter(ssm, yt, Xo, Xs, smooth)
+#  kf = kalman_filter(ssm, yt, Xo, Xs, w, smooth)
 
 ## -----------------------------------------------------------------------------
 #  library(kalmanfilter)
@@ -43,14 +40,6 @@ knitr::opts_chunk$set(
 #                                paste0(factors, "_t1")))
 #    Fm[is.na(Fm)] = 0
 #  
-#    #Transition exogenous matrix
-#    betaS = matrix(par[grepl("betaS_", names(par))], nrow = 3,
-#                   dimnames = list(rownames(Fm),
-#                                   unique(sapply(names(par)[grepl("betaS_", names(par))], function(x){
-#                                     s = strsplit(x, "\\.")[[1]]
-#                                     return(paste(s[2:length(s)], collapse = "."))
-#                                   }))))
-#  
 #    #Transition intercept matrix
 #    Dm = matrix(par[grepl("D_", names(par))], ncol = 1,
 #                dimnames = list(rownames(Fm), NULL))
@@ -75,19 +64,12 @@ knitr::opts_chunk$set(
 #      Hm[, "c_t0"] = Lc(par, tau)
 #    }
 #  
-#    betaO = matrix(par[grepl("betaO_", names(par))], nrow = n,
-#                   dimnames = list(rownames(Hm),
-#                                   unique(sapply(names(par)[grepl("betaO_", names(par))], function(x){
-#                                     s = strsplit(x, "\\.")[[1]]
-#                                     return(paste(s[2:length(s)], collapse = "."))
-#                                   }))))
-#  
 #    #Observation error variance covariance matrix
 #    Rm = diag(sum(grepl("sig_\\d+", names(par))))*par[grepl("sig_\\d+", names(par))]^2
 #    dimnames(Rm) = list(rownames(Hm), rownames(Hm))
 #  
 #    #Observation intercept matrix
-#    Am = matrix(par[grepl("A_", names(par))], nrow = nrow(Hm), ncol = 1,
+#    Am = matrix(0, nrow = nrow(Hm), ncol = 1,
 #                dimnames = list(rownames(Hm), NULL))
 #  
 #    #Initial guess for the unobserved vector
@@ -99,37 +81,22 @@ knitr::opts_chunk$set(
 #  
 #    return(list(Fm = Fm, Dm = Dm, Qm = Qm,
 #                Hm = Hm, Am = Am, Rm = Rm,
-#                betaO = betaO, betaS = betaS,
 #                B0 = B0, P0 = P0))
 #  }
 #  
 #  #Set the initial values
-#  init = c(level = 5.73, slope = -0.46, curvature = 0.67, lambda = 0.04,
-#           D_l = 0.14, D_s = -0.08, D_c = 0.24,
-#           phi_ll = 0.97, phi_ls = -0.02, phi_lc = 0.01,
-#           phi_sl = 0.082, phi_ss = 0.79, phi_sc = -0.14,
-#           phi_cl = -0.15, phi_cs = 0.05, phi_cc = 0.88,
-#           betaS_l.X = 0, betaS_s.X = 0, betaS_c.X = 0,
-#           sig_ll = 0.13,
-#           sig_sl = 0.12, sig_ss = 0.24,
-#           sig_cl = -0.05, sig_cs = -0.08, sig_cc = 1.03,
-#           A_1 = 0, A_3 = 0, A_6 = 0, A_12 = 0, A_24 = 0,
-#           A_36 = 0, A_60 = 0, A_84 = 0, A_120 = 0, A_240 = 0, A_360 = 0,
-#           betaO_1.X = 0, betaO_3.X = 0, betaO_6.X = 0, betaO_12.X = 0,
-#           betaO_24.X = 0, betaO_36.X = 0, betaO_60.X = 0, betaO_84.X = 0,
-#           betaO_120.X = 0, betaO_240.X = 0, betaO_360.X = 0,
-#           sig_1 = 0.08, sig_3 = 0.01, sig_6 = 0.11, sig_12 = 0.12,
-#           sig_24 = 0.07, sig_36 = 0.01, sig_60 = 0.06, sig_84 = 0.07,
-#           sig_120 = 0.04, sig_240 = 0.18, sig_360 = 0.2,
-#           P0 = 0.01)
-#  
-#  #Define the fixed values: not using exogenous data or observation intercept
-#  fixed = c("betaS_l.x", "betaS_s.X", "betaS_c.X",
-#            "A_1", "A_3", "A_6", "A_12", "A_24", "A_36", "A_60",
-#            "A_84", "A_120", "A_240", "A_360",
-#            "betaO_1.X", "betaO_3.X", "betaO_6.X", "betaO_12.X",
-#            "betaO_24.X", "betaO_36.X", "betaO_60.X", "betaO_84.X",
-#            "betaO_120.X", "betaO_240.X", "betaO_360.X")
+#  init = c(level = 5.9030, slope = -0.7090, curvature = 0.8690, lambda = 0.0423,
+#           D_l = 0.1234, D_s = -0.2285, D_c = 0.2020,
+#           phi_ll = 0.9720, phi_ls = 0.1009, phi_lc = -0.1226,
+#           phi_sl = -0.0209, phi_ss = 0.8189, phi_sc = 0.0192,
+#           phi_cl = -0.0061, phi_cs = -0.1446, phi_cc = 0.8808,
+#           sig_ll = 0.1017,
+#           sig_sl = 0.0937, sig_ss = 0.2267,
+#           sig_cl = 0.0303, sig_cs = 0.0351, sig_cc = 0.7964,
+#           sig_1 = 0.0934, sig_3 = 0.0001, sig_6 = 0.1206, sig_12 = 0.1525,
+#           sig_24 = 0.1328, sig_36 = 0.0855, sig_60 = 0.0001, sig_84 = 0.0397,
+#           sig_120 = 0.0595, sig_240 = 0.1438, sig_360 = 0.1450,
+#           P0 = 0.0001)
 #  
 #  #Set up the constraints: lambda and all standard deviation parameters must be positive
 #  ineqA = matrix(0, nrow = 15, ncol = length(init), dimnames = list(NULL, names(init)))
@@ -141,18 +108,16 @@ knitr::opts_chunk$set(
 #  yt = t(yt[, 2:ncol(yt)])
 #  
 #  #Set the objective function
-#  objective = function(par, data){
-#    ssm = yc_ssm(par, unique(data$maturity))
-#    return(kalman_lik(ssm, yt))
+#  objective = function(par){
+#    ssm = yc_ssm(par, tau)
+#    return(kalman_filter(ssm, yt,)$lnl)
 #  }
 #  
 #  #Solve the model
-#  solve = maxLik(logLik = objective,
-#                 start = init, method = "BFGS",
+#  solve = maxLik(logLik = objective, start = init, method = "BFGS",
 #                 finalHessian = FALSE, hess = NULL,
 #                 control = list(printLevel = 2, iterlim = 10000),
-#                 constraints = list(ineqA = ineqA, ineqB = ineqB),
-#                 data = treasuries, fixed = fixed)
+#                 constraints = list(ineqA = ineqA, ineqB = ineqB))
 #  
 #  #Get the estimated state space model
 #  ssm = yc_ssm(solve$estimate, tau)
@@ -172,17 +137,225 @@ knitr::opts_chunk$set(
 #  g1 = ggplot(treasuries, id.vars = "date") +
 #    geom_line(aes(x = date, y = value, group = factor(maturity), color = factor(maturity))) +
 #    theme_minimal() + theme(legend.position = "bottom") +
-#    labs(title = "Actual Treasury Yields", x = "", y = "value") +
+#    labs(title = "Actual Treasury Yields", x = "", y = "Value") +
 #    guides(color = guide_legend(title = NULL))
 #  g2 = ggplot(melt(y_tt, id.vars = "date")) +
 #    geom_line(aes(x = date, y = value, group = variable, color = variable)) +
 #    theme_minimal() + theme(legend.position = "bottom") +
-#    labs(title = "Estimated Treasury Yields", x = "", y = "value") +
+#    labs(title = "Estimated Treasury Yields", x = "", y = "Value") +
 #    guides(color = guide_legend(title = NULL))
 #  g3 = ggplot(melt(B_tt, id.vars = "date")) +
 #    geom_line(aes(x = date, y = value, group = variable, color = variable)) +
 #    theme_minimal() + theme(legend.position = "bottom") +
-#    labs(title = "Estimated Factors", x = "", y = "value") +
+#    labs(title = "Estimated Factors", x = "", y = "Value") +
 #    guides(color = guide_legend(title = NULL))
 #  grid.arrange(g1, g2, g3, layout_matrix = rbind(c(1, 2), c(3, 3)))
+
+## -----------------------------------------------------------------------------
+#  library(kalmanfilter)
+#  library(data.table)
+#  library(maxLik)
+#  library(ggplot2)
+#  library(gridExtra)
+#  data(sw_dcf)
+#  data = sw_dcf[, colnames(sw_dcf) != "dcoinc", with = F]
+#  vars = colnames(data)[colnames(data) != "date"]
+#  
+#  #State space model for the Stock and Watson Dynamic Common Factor model
+#  dcf_ssm = function(par, yt){
+#    #Get the parameters
+#    vars = dimnames(yt)[which(unlist(lapply(dimnames(yt), function(x){!is.null(x)})))][[1]]
+#    phi = par[grepl("phi", names(par))]
+#    names(phi) = gsub("phi", "", names(phi))
+#    gamma = par[grepl("gamma_", names(par))]
+#    names(gamma) = gsub("gamma_", "", names(gamma))
+#    psi = par[grepl("psi_", names(par))]
+#    names(psi) = gsub("psi_", "", names(psi))
+#    sig = par[grepl("sigma_", names(par))]
+#    names(sig) = gsub("sigma_", "", names(sig))
+#  
+#    #Build the transition matrix
+#    phi_dim = max(c(length(phi)), length(unique(sapply(strsplit(names(gamma), "\\."), function(x){x[2]}))))
+#    psi_dim = sapply(unique(sapply(strsplit(names(psi), "\\."), function(x){x[1]})), function(x){
+#      max(as.numeric(sapply(strsplit(names(psi)[grepl(paste0("^", x), names(psi))], "\\."), function(x){x[2]})))
+#    })
+#    Fm = matrix(0, nrow = phi_dim + length(psi), ncol = phi_dim + length(psi),
+#                dimnames = list(
+#                  c(paste0("ct.", 0:(phi_dim - 1)),
+#                    unlist(lapply(names(psi_dim), function(x){paste0("e_", x, ".", 0:(psi_dim[x] - 1))}))),
+#                  c(paste0("ct.", 1:phi_dim),
+#                    unlist(lapply(names(psi_dim), function(x){paste0("e_", x, ".", 1:psi_dim[x])})))
+#                ))
+#    Fm["ct.0", paste0("ct.", names(phi))] = phi
+#    for(i in 1:length(vars)){
+#      Fm[paste0("e_", i, ".0"),
+#         paste0("e_", names(psi)[grepl(paste0("^", i), names(psi))])] = psi[grepl(paste0("^", i), names(psi))]
+#    }
+#    diag(Fm[intersect(rownames(Fm), colnames(Fm)), intersect(rownames(Fm), colnames(Fm))]) = 1
+#  
+#    #Build the observation matrix
+#    Hm = matrix(0, nrow = nrow(yt), ncol = nrow(Fm), dimnames = list(rownames(yt), rownames(Fm)))
+#    for(i in 1:length(vars)){
+#      Hm[i, paste0("ct.", sapply(strsplit(names(gamma)[grepl(paste0("^", i), names(gamma))], "\\."), function(x){x[2]}))] =
+#        gamma[grepl(paste0("^", i), names(gamma))]
+#    }
+#    diag(Hm[, paste0("e_", 1:length(vars), ".0")]) = 1
+#  
+#    #Build the state covariance matrix
+#    #Set the dynamic common factor standard deviation to 1
+#    Qm = matrix(0, ncol = ncol(Fm), nrow = nrow(Fm), dimnames = list(rownames(Fm), rownames(Fm)))
+#    Qm["ct.0", "ct.0"] = 1
+#    for(i in 1:length(vars)){
+#      Qm[paste0("e_", i, ".0"), paste0("e_", i, ".0")] = sig[names(sig) == i]^2
+#    }
+#  
+#    #Build the observation equation covariance matrix
+#    Rm = matrix(0, ncol = nrow(Hm), nrow = nrow(Hm), dimnames = list(vars, vars))
+#  
+#    #Transition equation intercept matrix
+#    Dm = matrix(0, nrow = nrow(Fm), ncol = 1, dimnames = list(rownames(Fm), NULL))
+#  
+#    #Observation equation intercept matrix
+#    Am = matrix(0, nrow = nrow(Hm), ncol = 1)
+#  
+#    #Initialize the filter for each state
+#    B0 = matrix(0, nrow(Fm), 1)
+#    P0 = diag(nrow(Fm))
+#    dimnames(B0) = list(rownames(Fm), NULL)
+#    dimnames(P0) = list(rownames(Fm), rownames(Fm))
+#  
+#    B0 = solve(diag(ncol(Fm)) - Fm) %*% Dm
+#    VecP_ll = solve(diag(prod(dim(Fm))) - kronecker(Fm, Fm)) %*% matrix(as.vector(Qm), ncol = 1)
+#    P0 = matrix(VecP_ll[, 1], ncol = ncol(Fm))
+#  
+#    return(list(B0 = B0, P0 = P0, Am = Am, Dm = Dm, Hm = Hm, Fm = Fm, Qm = Qm, Rm = Rm))
+#  }
+#  
+#  #Log the data
+#  data.log = copy(data)
+#  data.log[, c(vars) := lapply(.SD, log), .SDcols = c(vars)]
+#  
+#  #Difference the data
+#  data.logd = copy(data.log)
+#  data.logd[, c(vars) := lapply(.SD, function(x){
+#    x - shift(x, type = "lag", n = 1)
+#  }), .SDcols = c(vars)]
+#  
+#  #Standardize the data
+#  data.logds = copy(data.logd)
+#  data.logds[, c(vars) := lapply(.SD, scale, scale = FALSE), .SDcols = c(vars)]
+#  
+#  #Transpose the data
+#  yt = t(data.logds[, c(vars), with = FALSE])
+#  
+#  #Set the initial values
+#  init = c(phi1 = 0.8588, phi2 = -0.1526,
+#           psi_1.1 = -0.1079, psi_1.2 = -0.1415,
+#           psi_2.1 = -0.3166, psi_2.2 = -0.0756,
+#           psi_3.1 = -0.3994, psi_3.2 = -0.2028,
+#           psi_4.1 = -0.0370, psi_4.2 = 0.3646,
+#           gamma_1.0 = 0.0064, gamma_1.1 = -0.0020,
+#           gamma_2.0 = 0.0018,
+#           gamma_3.0 = 0.0059, gamma_3.1 = -0.0027,
+#           gamma_4.0 = 0.0014, gamma_4.1 = -0.0004, gamma_4.2 = 0.0001, gamma_4.3 = 0.0004,
+#           sigma_1 = 0.0049, sigma_2 = 0.0056, sigma_3 = 0.0077, sigma_4 = 0.0013)
+#  
+#  #Set the constraints
+#  ineqA = matrix(0, nrow = 14,
+#                 ncol = length(init), dimnames = list(NULL, names(init)))
+#  #Stationarity constraints
+#  ineqA[c(1, 2), c("phi1", "phi2")] = rbind(c(1, 1), c(-1, -1))
+#  ineqA[c(3, 4), grepl("psi_1", colnames(ineqA))] = rbind(c(1, 1), c(-1, -1))
+#  ineqA[c(5, 6), grepl("psi_2", colnames(ineqA))] = rbind(c(1, 1), c(-1, -1))
+#  ineqA[c(7, 8), grepl("psi_3", colnames(ineqA))] = rbind(c(1, 1), c(-1, -1))
+#  ineqA[c(9, 10), grepl("psi_4", colnames(ineqA))] = rbind(c(1, 1), c(-1, -1))
+#  #Non-negativity constraints
+#  diag(ineqA[c(11, 12, 13, 14), grepl("sigma_", colnames(ineqA))]) = 1
+#  ineqB = matrix(c(rep(1, 10),
+#                   rep(0, 4)), nrow = nrow(ineqA), ncol = 1)
+#  
+#  #Define the objective function
+#  objective = function(par, yt){
+#    ssm = dcf_ssm(par, yt)
+#    return(kalman_filter(ssm, yt, smooth = FALSE)$lnl)
+#  }
+#  
+#  #Solve the model
+#  solve = maxLik(logLik = objective, start = init, method = "BFGS",
+#                 finalHessian = FALSE, hess = NULL,
+#                 control = list(printLevel = 2, iterlim = 10000),
+#                 constraints = list(ineqA = ineqA, ineqB = ineqB),
+#                 yt = yt)
+#  
+#  #Get the estimated state space model
+#  ssm = dcf_ssm(solve$estimate, yt)
+#  
+#  #Get the column means and standard deviations
+#  M = matrix(unlist(data.logd[, lapply(.SD, mean, na.rm = TRUE), .SDcols = c(vars)]),
+#                 ncol = 1, dimnames = list(vars, NULL))
+#  
+#  #Get the coefficient matrices
+#  Hm = ssm[["Hm"]]
+#  Fm = ssm[["Fm"]]
+#  
+#  #Final K_t is approximation to steady state K
+#  filter = kalman_filter(ssm, yt, smooth = T)
+#  K = filter$K_t[,, dim(filter$K_t)[3]]
+#  W = solve(diag(nrow(K)) - (diag(nrow(K)) - K %*% Hm) %*% Fm) %*% K
+#  d = (W %*% M)[1, 1]
+#  
+#  #Get the intercept terms
+#  gamma = Hm[, grepl("ct", colnames(Hm))]
+#  D = M - gamma %*% matrix(rep(d, ncol(gamma)))
+#  
+#  #Initialize first element of the dynamic common factor
+#  Y1 = t(data.log[, c(vars), with = F][1, ])
+#  initC = function(par){
+#    return(sum((Y1 - D - gamma %*% par)^2))
+#  }
+#  C10 = optim(par = Y1, fn = initC, method = "BFGS", control = list(trace = FALSE))$par[1]
+#  Ctt = rep(C10, ncol(yt))
+#  
+#  #Build the rest of the level of the dynamic common factor
+#  ctt = filter$B_tt[which(rownames(Fm) == "ct.0"), ]
+#  for(j in 2:length(Ctt)){
+#    Ctt[j] = ctt[j] + Ctt[j - 1] + c(d)
+#  }
+#  Ctt = data.table(date = data$date, dcf = Ctt, d.dcf = ctt)
+#  
+#  #Plot the outputs
+#  g1 = ggplot(melt(data.log, id.vars = "date")[, "value" := scale(value), by = "variable"]) +
+#    ggtitle("Data", subtitle = "Log Levels (Rescaled)") +
+#    scale_y_continuous(name = "Value") +
+#    scale_x_date(name = "") +
+#    geom_line(aes(x = date, y = value, group = variable, color = variable)) +
+#    theme_minimal() + theme(legend.position = "bottom") + guides(color = guide_legend(title = NULL))
+#  
+#  g2 = ggplot( melt(data.logds, id.vars = "date")) +
+#    ggtitle("Data", subtitle = "Log Differenced & Standardized") +
+#    scale_y_continuous(name = "Value") +
+#    scale_x_date(name = "") +
+#    geom_hline(yintercept = 0, color = "black") +
+#    geom_line(aes(x = date, y = value, group = variable, color = variable)) +
+#    theme_minimal() + theme(legend.position = "bottom") + guides(color = guide_legend(title = NULL))
+#  
+#  g3 = ggplot(melt(Ctt, id.vars = "date")[variable == "dcf", ]) +
+#    ggtitle("Dynamic Common Factor", subtitle = "Levels") +
+#    scale_x_date(name = "") +
+#    geom_hline(yintercept = 0, color = "grey") +
+#    geom_line(aes(x = date, y = value, group = variable, color = variable)) +
+#    theme_minimal() + theme(legend.position = "bottom") + scale_color_manual(values = "black") +
+#    guides(color = guide_legend(title = NULL), fill = guide_legend(title = NULL)) +
+#    scale_y_continuous(name = "Value", limits = range(Ctt$dcf, na.rm = TRUE))
+#  
+#  g4 = ggplot(melt(Ctt, id.vars = "date")[variable == "d.dcf", ]) +
+#    ggtitle("Dynamic Common Factor", subtitle = "Differenced") +
+#    scale_x_date(name = "") +
+#    geom_hline(yintercept = 0, color = "grey") +
+#    geom_line(aes(x = date, y = value, group = variable, color = variable)) +
+#    theme_minimal() + theme(legend.position = "bottom") + scale_color_manual(values = "black") +
+#    guides(color = guide_legend(title = NULL), fill = guide_legend(title = NULL)) +
+#    scale_y_continuous(name = "Value", limits = range(Ctt$d.dcf, na.rm = TRUE))
+#  
+#  grid.arrange(g1, g2, g3, g4, layout_matrix = matrix(c(1, 3, 2, 4), nrow = 2))
 

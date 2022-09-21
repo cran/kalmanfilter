@@ -7,5 +7,8 @@
 #'  
 #' @docType package
 #' @author Alex Hubbard
+#' @import Rcpp
+#' @importFrom Rcpp evalCpp
+#' @useDynLib kalmanfilter, .registration=TRUE
 #' @name kalmanfilter
 NULL

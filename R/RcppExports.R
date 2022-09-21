@@ -4,6 +4,7 @@
 #' R's implementation of the Moore-Penrose pseudo matrix inverse
 #'
 #' @param m matrix
+#' @return matrix inverse of m
 Rginv <- function(m) {
     .Call(`_kalmanfilter_Rginv`, m)
 }
@@ -11,29 +12,70 @@ Rginv <- function(m) {
 #' Generalized matrix inverse
 #'
 #' @param m matrix
+#' @return matrix inverse of m
 gen_inv <- function(m) {
     .Call(`_kalmanfilter_gen_inv`, m)
 }
 
-#' Kalman Likelihood
-#'
-#' @param sp list describing the state space model
-#' @param yt matrix of data
-#' @param Xo matrix of exogenous observation data
-#' @param Xs matrix of exogenous state data
-#' @param w matrix of weights
-likelihood <- function(sp, yt, Xo, Xs, w) {
-    .Call(`_kalmanfilter_likelihood`, sp, yt, Xo, Xs, w)
+#' Check if list contains a name
+#' 
+#' @param s a string name
+#' @param L a list object
+#' @return boolean
+contains <- function(s, L) {
+    .Call(`_kalmanfilter_contains`, s, L)
 }
 
 #' Kalman Filter
 #'
-#' @param sp list describing the state space model
-#' @param yt matrix of data
-#' @param Xo matrix of exogenous observation data
-#' @param Xs matrix of exogenous state data
+#' @param ssm list describing the state space model, must include names
+#' B0 - N_b x 1 matrix, initial guess for the unobserved components 
+#' P0 - N_b x N_b matrix, initial guess for the covariance matrix of the unobserved components
+#' Dm - N_b x 1 matrix, constant matrix for the state equation
+#' Am - N_y x 1 matrix, constant matrix for the observation equation
+#' Fm - N_b X p matrix, state transition matrix
+#' Hm - N_y x N_b matrix, observation matrix
+#' Qm - N_b x N_b matrix, state error covariance matrix
+#' Rm - N_y x N_y matrix, state error covariance matrix
+#' betaO - N_y x N_o matrix, coefficient matrix for the observation exogenous data
+#' betaS - N_b x N_s matrix, coefficient matrix for the state exogenous data
+#' @param yt N x T matrix of data
+#' @param Xo N_o x T matrix of exogenous observation data
+#' @param Xs N_s x T matrix of exogenous state 
+#' @param weight column matrix of weights, T x 1
 #' @param smooth boolean indication whether to run the backwards smoother
-filter <- function(sp, yt, Xo, Xs, smooth = FALSE) {
-    .Call(`_kalmanfilter_filter`, sp, yt, Xo, Xs, smooth)
+#' @return list of matrices and cubes output by the Kalman filter
+#' @examples
+#' #Nelson-Siegel dynamic factor yield curve
+#' library(kalmanfilter)
+#' library(data.table)
+#' data(treasuries)
+#' tau = unique(treasuries$maturity)
+#'
+#' #Set up the state space model
+#' ssm = list()
+#' ssm[["Fm"]] = rbind(c(0.9720, -0.0209, -0.0061), 
+#'                     c(0.1009 , 0.8189, -0.1446), 
+#'                     c(-0.1226, 0.0192, 0.8808))
+#' ssm[["Dm"]] = matrix(c(0.1234, -0.2285, 0.2020), nrow = nrow(ssm[["Fm"]]), ncol = 1)
+#' ssm[["Qm"]] = rbind(c(0.1017, 0.0937, 0.0303), 
+#'                     c(0.0937, 0.2267, 0.0351), 
+#'                     c(0.0303, 0.0351, 0.7964))
+#' ssm[["Hm"]] = cbind(rep(1, 11),
+#'                     -(1 - exp(-tau*0.0423))/(tau*0.0423), 
+#'                     (1 - exp(-tau*0.0423))/(tau*0.0423) - exp(-tau*0.0423))
+#' ssm[["Am"]] = matrix(0, nrow = length(tau), ncol = 1)
+#' ssm[["Rm"]] = diag(c(0.0087, 0, 0.0145, 0.0233, 0.0176, 0.0073, 
+#'                      0, 0.0016, 0.0035, 0.0207, 0.0210))
+#' ssm[["B0"]] = matrix(c(5.9030, -0.7090, 0.8690), nrow = nrow(ssm[["Fm"]]), ncol = 1)
+#' ssm[["P0"]] = diag(rep(0.0001, nrow(ssm[["Fm"]])))
+#'     
+#' #Convert to an NxT matrix
+#' yt = dcast(treasuries, "date ~ maturity", value.var = "value")
+#' yt = t(yt[, 2:ncol(yt)])
+#' kf = kalman_filter(ssm, yt, smooth = TRUE)   
+#' @export
+kalman_filter <- function(ssm, yt, Xo = NULL, Xs = NULL, weight = NULL, smooth = FALSE) {
+    .Call(`_kalmanfilter_kalman_filter`, ssm, yt, Xo, Xs, weight, smooth)
 }
 

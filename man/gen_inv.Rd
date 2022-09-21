@@ -9,6 +9,9 @@ gen_inv(m)
 \arguments{
 \item{m}{matrix}
 }
+\value{
+matrix inverse of m
+}
 \description{
 Generalized matrix inverse
 }

@@ -10,9 +10,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<meta name="author" content="Vignette Author" />
+<meta name="author" content="Alex Hubbard" />
 
-<meta name="date" content="2022-09-01" />
+<meta name="date" content="2022-09-21" />
 
 <title>Kalman Filter for State Space Models</title>
 
@@ -122,13 +122,20 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
   for (var i = 0; i < sheets.length; i++) {
     if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
     try { var rules = sheets[i].cssRules; } catch (e) { continue; }
-    for (var j = 0; j < rules.length; j++) {
+    var j = 0;
+    while (j < rules.length) {
       var rule = rules[j];
       // check if there is a div.sourceCode rule
-      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
       var style = rule.style.cssText;
       // check if color or background-color is set
-      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
       // replace div.sourceCode by a pre.sourceCode rule
       sheets[i].deleteRule(j);
       sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
@@ -333,49 +340,52 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 <h1 class="title toc-ignore">Kalman Filter for State Space Models</h1>
-<h4 class="author">Vignette Author</h4>
-<h4 class="date">2022-09-01</h4>
+<h4 class="author">Alex Hubbard</h4>
+<h4 class="date">2022-09-21</h4>
 
 
 
 <p><code>kalmanfilter</code> is an <code>Rcpp</code> implementation of
 the multivariate Kalman filter for state space models that can handle
 missing values and exogenous data in the observation and state
-equations.</p>
+equations. The Kalman filter is a method to compute the optimal
+estimator of the unobserved state vector in a time series.</p>
 <div id="the-state-space-model" class="section level1">
 <h1>The State Space Model</h1>
 <p>The state space model is written as <span class="math display">\[
 Y_t = A + H \beta + B^o X^o_t + e_t, e_t \sim N(0, R)\\
 \beta_t = D + F \beta_{t-1} + B^s X^s_t + u_t, u_t \sim N(0, Q)
 \]</span> where the first equation is the observation equation and the
-second equation is the transition equation. <span class="math inline">\(H\)</span> is the observation matrix, <span class="math inline">\(X^o_t\)</span> is optional exogenous data in the
-observation equation, and <span class="math inline">\(e_t \sim N(0,
-\sigma_e^2)\)</span> is the observation error, and <span class="math inline">\(R\)</span> is the observation error-covariance
+second equation is the state equation. <span class="math inline">\(A\)</span> is the observation intercept matrix,
+<span class="math inline">\(H\)</span> is the observation matrix, <span class="math inline">\(X^o_t\)</span> is optional exogenous data in the
+observation equation, <span class="math inline">\(e_t \sim N(0,
+R)\)</span> is the observation error, and <span class="math inline">\(R\)</span> is the observation error-covariance
 matrix. <span class="math inline">\(\beta_t\)</span> is the vector of
-the unobserved components <span class="math inline">\(F\)</span> is the
-transition matrix, and <span class="math inline">\(Q\)</span> is the
-transition error-covariance matrix. <span class="math inline">\(X^s_t\)</span> is optional exogenous data in the
-state equation.</p>
+the state components, <span class="math inline">\(D\)</span> is the
+state intercept matrix, <span class="math inline">\(F\)</span> is the
+transition matrix, <span class="math inline">\(X^s_t\)</span> is
+optional exogenous data in the state equation, <span class="math inline">\(v_t \sim N(0, Q_{s_t})\)</span> is the state
+error, and <span class="math inline">\(Q\)</span> is the state
+error-covariance matrix.</p>
 </div>
 <div id="the-kalman-filter" class="section level1">
 <h1>The Kalman Filter</h1>
-<p>To estimate the unobserved components (<span class="math inline">\(T_t, C_t, S_t\)</span>, and <span class="math inline">\(D_t\)</span>), the Kalman filter is utilized. The
-Kalman filter is a forward two-stage procedure that is the optimal
-linear filter based on the multivariate normal distribution. The
+<p>The Kalman filter is a forward two-stage procedure that is the
+optimal linear filter based on the multivariate normal distribution. The
 “forwardness” of the filter means that it uses only data up to time
 <span class="math inline">\(t\)</span> to make an inference on the
 unobserved components at time <span class="math inline">\(t\)</span> and
 does peak into the future to make that inference.</p>
 <div id="prediction-stage" class="section level2">
 <h2>Prediction Stage</h2>
-<p>The first stage is the prediction stage, which makes predictions on
-the unobserved components based on information up to time <span class="math inline">\(t-1\)</span>. This stage is made up of four
-equations, the first is the prediction of the unobserved components
-based on its time series properties</p>
+<p>The first stage is the prediction stage, which makes predictions of
+the state components based on information up to time <span class="math inline">\(t-1\)</span>. This stage is made up of four
+equations, the first is the prediction of the state components based on
+its time series properties</p>
 <p><span class="math display">\[
-B_{t|t-1} = \bar{D} + F \beta_{t-1|t-1} + B^s X^s_t
+B_{t|t-1} = D + F \beta_{t-1|t-1} + B^s X^s_t
 \]</span></p>
-<p>Second, is the prediction of the covariance matrix of the unobserved
+<p>Second, is the prediction of the covariance matrix of the state
 components</p>
 <p><span class="math display">\[
 P_{t|t-1} = F P_{t_1|t-1} F^{\prime} + Q
@@ -394,7 +404,7 @@ f_{t|t-1} = H P_{t|t-1} H^{\prime} + R
 <p>The second stage is the updating stage, which makes predictions based
 on all information up to time <span class="math inline">\(t\)</span>. It
 consists of three equations. The first equation is the prediction of the
-unobserved components based on the the full information set</p>
+state components based on the the full information set</p>
 <p><span class="math display">\[
 \beta_{t|t} = B_{t|t-1} + K_t \eta_{t|t-1}
 \]</span> where <span class="math inline">\(K_t\)</span> is the Kalman
@@ -404,7 +414,7 @@ and is the second equation</p>
 <p><span class="math display">\[
 K_t = P_{t|t-1} H^{\prime} f_{t|t-1}^{-1}
 \]</span> The last equation is the updating of the covariance matrix of
-the unobserved components</p>
+the state components</p>
 <p><span class="math display">\[
 P_{t|t} = P_{t|t-1} - K_t H^{\prime} P_{t|t-1}
 \]</span> The seven equations above, make up the full Kalman filter
@@ -420,18 +430,18 @@ f_{t|t-1} = \infty
 <div id="kalman-smoothing" class="section level2">
 <h2>Kalman Smoothing</h2>
 <p>Once the Kalman filter is applied to the data, a smoothing procedure
-can applied in the backward direction to make a better inference of the
-unobserved components based on the entire data set. Unlike the filter,
-the smoother does peak into the future to make an inference on the
-unobserved components at time <span class="math inline">\(t\)</span>.
-This procedure consists of only two equations.</p>
-<p>The first equation updates the prediction of the unobserved
-components based on all the available information</p>
+can be applied in the backward direction to make a better inference of
+the state components based on the entire data set. Unlike the filter,
+the smoother does peak into the future to make an inference of the state
+components at time <span class="math inline">\(t\)</span>. This
+procedure consists of only two equations.</p>
+<p>The first equation updates the prediction of the state components
+based on all the available information</p>
 <p><span class="math display">\[
 \beta_{t|T} = \beta_{t|t} + P_{t|t} F^{\prime} P_{t|t}^{-1}
 (\beta_{t+1|T} - \beta_{t+1|t})
 \]</span></p>
-<p>The second equation updates the covariance matrix of the unobserved
+<p>The second equation updates the covariance matrix of the state
 components based on all the available information</p>
 <p><span class="math display">\[
 P_{t|T} = P_{t|t} + P_{t|t} F^{\prime} P_{t+1|t}^{-1} (P_{t+1|T} -
@@ -439,230 +449,438 @@ P_{t+1|t}) P_{t+1|t}^{-1 \prime} F P_{t|t}^{\prime}
 \]</span></p>
 </div>
 </div>
+<div id="estimation" class="section level1">
+<h1>Estimation</h1>
+<p>To estimate a model with the Kalman filter via maximum likelihood,
+the log likelihood is given by</p>
+<p><span class="math display">\[
+ln(L(\theta)) = -\frac{1}{2} \sum_{t=1}^T \ln(|f_{t|t-1}|) -
+\frac{1}{2}\sum_{t=1}^T \eta_{t|t-1}^{\prime} f_{t|t-1}^{-1}
+\eta_{t|t-1}
+\]</span></p>
+</div>
 <div id="implementation" class="section level1">
 <h1>Implementation</h1>
-<p>To use the package for maximum likelihood estimation, use the
-function <code>kalman_lik</code> as</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>lnl <span class="ot">=</span> <span class="fu">kalman_lik</span>(ssm, yt, Xo, Xs, w)</span></code></pre></div>
+<p>To use the package, use the function <code>kalman_filter</code>
+as</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>kf <span class="ot">=</span> <span class="fu">kalman_filter</span>(ssm, yt, Xo, Xs, w, smooth)</span></code></pre></div>
 <p>where <code>ssm</code> is a list object with matrices that describes
 the state space model. <code>ssm</code> should contain matrices named
-“B0” for the initial guess of the unobserved components, “P0” for the
-initial guess of the unobserved components covariance matrix, “Dm” for
-the constant in the state equation, “Am” for the constant in the
-observation equation, “Fm” for the state equation transition matrix,
-“Hm” for the observation matrix in the observation equation, “Qm” for
-the covariance matrix of the errors in the state equation, “Rm” for the
-covariance matrix of the errors in the observation equation, “betaO” for
-the coefficients on the exogenous data in the observation matrix, and
-“betaS” for the coefficients on the exogenous data in the state
-matrix.</p>
-<p><code>yt</code> is an <code>N_yxT</code> matrix, where
-<code>N_y</code> is the number of variables and <code>T</code> is the
-number of time periods.</p>
-<p><code>Xo</code> is an <code>M_oxT</code> matrix of exogenous data in
-the observation equation, where <code>M_o</code> is the number of
-exogenous observation variables.</p>
-<p><code>Xs</code> is an <code>M_sxT</code> matrix of exogenous data in
-the state equation, where <code>M_s</code> is the number of exogenous
-state variables.</p>
-<p><code>w</code> is an <code>Tx1</code> matrix of weights.</p>
+<code>B0</code> for the initial guess of the unobserved components,
+<code>P0</code> for the initial guess of the unobserved components
+covariance matrix, <code>Dm</code> for the constant in the state
+equation, <code>Am</code> for the constant in the observation equation,
+<code>Fm</code> for the state equation transition matrix,
+<code>Hm</code> for the observation matrix in the observation equation,
+<code>Qm</code> for the covariance matrix of the errors in the state
+equation, <code>Rm</code> for the covariance matrix of the errors in the
+observation equation, <code>betaO</code> for the coefficients on the
+exogenous data in the observation matrix, and <code>betaS</code> for the
+coefficients on the exogenous data in the state matrix.
+<code>betaO</code> and <code>betaS</code> are optional.</p>
+<p><code>yt</code> is an <span class="math inline">\(N_y x T\)</span>
+matrix, where <span class="math inline">\(N_y\)</span> is the number of
+variables and <span class="math inline">\(T\)</span> is the number of
+time periods.</p>
+<p><code>Xo</code> is an optional <span class="math inline">\(N_o x
+T\)</span> matrix of optional exogenous data in the observation
+equation, where <span class="math inline">\(N_o\)</span> is the number
+of exogenous observation variables.</p>
+<p><code>Xs</code> is an optional <span class="math inline">\(N_s x
+T\)</span> matrix of optional exogenous data in the state equation,
+where <span class="math inline">\(N_s\)</span> is the number of
+exogenous state variables.</p>
+<p><code>w</code> is an optional <span class="math inline">\(T x
+1\)</span> matrix of optional weights applied to the likelihood.</p>
 <p><code>ssm[[&quot;B0&quot;]]</code>, <code>ssm[[&quot;P0&quot;]]</code>,
-<code>ssm[[&quot;Qm&quot;]]</code> are <code>N_{\beta}xN_{\beta}</code> matrix,
-where <code>N_{\beta}</code> is the number of unobserved variables in
-the state equation.</p>
-<p><code>ssm[[&quot;Dm&quot;]]</code> is an <code>N_{\beta}x1</code> matrix.</p>
-<p><code>ssm[[&quot;Am&quot;]]</code> is an <code>N_yx1</code> matrix.</p>
-<p><code>ssm[[&quot;Fm&quot;]]</code> is an <code>N_{\beta}xP</code> matrix, where
-<code>P</code> is the number of lags in the state equation.</p>
-<p><code>ssm[[&quot;Hm&quot;]]</code> is an <code>N_yxN_{\beta}</code> matrix.</p>
-<p><code>ssm[[&quot;Rm&quot;]]</code> is an <code>N_yxN_y</code> matrix.</p>
-<p><code>ssm[[&quot;betaO&quot;]]</code> is an <code>N_yxM_o</code> matrix.</p>
-<p><code>ssm[[&quot;betaS&quot;]]</code> is an <code>N_{\beta}xM_s</code>
-matrix.</p>
+<code>ssm[[&quot;Qm&quot;]]</code> are <span class="math inline">\(N_{\beta} x
+N_{\beta}\)</span> matrix, where <span class="math inline">\(N_{\beta}\)</span> is the number of unobserved
+variables in the state equation.</p>
+<p><code>ssm[[&quot;Dm&quot;]]</code> is an <span class="math inline">\(N_{\beta}
+x 1\)</span> matrix.</p>
+<p><code>ssm[[&quot;Am&quot;]]</code> is an <span class="math inline">\(N_y x
+1\)</span> matrix.</p>
+<p><code>ssm[[&quot;Fm&quot;]]</code> is an <span class="math inline">\(N_{\beta}
+x P\)</span> matrix, where <span class="math inline">\(P\)</span> is the
+number of lags in the state equation.</p>
+<p><code>ssm[[&quot;Hm&quot;]]</code> is an <span class="math inline">\(N_y x
+N_{\beta}\)</span> matrix.</p>
+<p><code>ssm[[&quot;Rm&quot;]]</code> is an <span class="math inline">\(N_y x
+N_y\)</span> matrix.</p>
+<p><code>ssm[[&quot;betaO&quot;]]</code> is an optional <span class="math inline">\(N_y x N_o\)</span> matrix.</p>
+<p><code>ssm[[&quot;betaS&quot;]]</code> is an optional <span class="math inline">\(N_{\beta} x N_s\)</span> matrix.</p>
 <p>To force exclusion of exogenous data, set the relevant matrices to
-have all 0 values.</p>
-<p>To use an unweighted likelihood, set the weights to be all 1’s.</p>
-<p>To use the package to apply the Kalman filter to data with an
-estimated state space model, use the function <code>kalman_filter</code>
-as</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>f <span class="ot">=</span> <span class="fu">kalman_filter</span>(ssm, yt, Xo, Xs, smooth)</span></code></pre></div>
-<p>where <code>smooth</code> is a boolean indicating whether to run the
+have all 0 values. This is the default.</p>
+<p>To use an unweighted likelihood, set the weights to be all 1’s. This
+is the default.</p>
+<p><code>smooth</code> is a boolean indicating whether to run the
 backwards smoother or not.</p>
+<p>The output gives a list with values <code>lnl</code> (the log
+likelihood), <code>y_tl</code> (the predicted values of <code>y</code>
+given information up to time <span class="math inline">\(t-1\)</span>),
+<code>y_tt</code> (the predicted values of <code>y</code> using all the
+available information), <code>B_tl</code> (the predicted values of the
+unobserved components up to time <span class="math inline">\(t-1\)</span>), <code>B_tt</code> (the predicted
+values of the unobserved components given all the available
+information), <code>P_tl</code> (the unobserved components covariance
+matrix up to time <span class="math inline">\(t-1\)</span>),
+<code>P_tt</code> (the unobserved components covariance matrix using all
+the available information), <code>F_t</code> (variance of the prediction
+error of <code>y</code> up to time <span class="math inline">\(t-1\)</span>), <code>N_t</code> (the prediction
+error of <code>y</code> up to time <span class="math inline">\(t-1\)</span>), and <code>K_t</code> (the Kalman
+gain).</p>
 <div id="example-nelson-siegel-dynamic-factor-yield-curve-model" class="section level2">
 <h2>Example: Nelson-Siegel Dynamic Factor Yield Curve Model</h2>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(kalmanfilter)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(maxLik)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gridExtra)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(treasuries)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>tau <span class="ot">=</span> <span class="fu">unique</span>(treasuries<span class="sc">$</span>maturity)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">#State space model for the Nelson-Siegel dynamic factor yield curve</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>yc_ssm <span class="ot">=</span> <span class="cf">function</span>(par, tau){</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Set factor names</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  tau <span class="ot">=</span> <span class="fu">unique</span>(tau)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  factors <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;l&quot;</span>, <span class="st">&quot;s&quot;</span>, <span class="st">&quot;c&quot;</span>)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Loading on the slope factor</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  Ls <span class="ot">=</span> <span class="cf">function</span>(par, tau){</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">return</span>(<span class="sc">-</span>(<span class="dv">1</span> <span class="sc">-</span> <span class="fu">exp</span>(<span class="sc">-</span>tau<span class="sc">*</span>par[<span class="st">&quot;lambda&quot;</span>]))<span class="sc">/</span>(tau<span class="sc">*</span>par[<span class="st">&quot;lambda&quot;</span>]))</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Loading on the curvature factor</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  Lc <span class="ot">=</span> <span class="cf">function</span>(par, tau){</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">return</span>(<span class="sc">-</span><span class="fu">Ls</span>(par[<span class="st">&quot;lambda&quot;</span>], tau) <span class="sc">-</span> <span class="fu">exp</span>(<span class="sc">-</span>tau<span class="sc">*</span>par[<span class="st">&quot;lambda&quot;</span>]))</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="do">########## Define the state space model</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Transition matrix</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  Fm <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">grepl</span>(<span class="st">&quot;phi_&quot;</span>, <span class="fu">names</span>(par))], <span class="at">nrow =</span> <span class="dv">3</span>, <span class="at">ncol =</span> <span class="dv">3</span>,</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">paste0</span>(factors, <span class="st">&quot;_t0&quot;</span>),</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>                              <span class="fu">paste0</span>(factors, <span class="st">&quot;_t1&quot;</span>)))</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  Fm[<span class="fu">is.na</span>(Fm)] <span class="ot">=</span> <span class="dv">0</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Transition intercept matrix</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  Dm <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">grepl</span>(<span class="st">&quot;D_&quot;</span>, <span class="fu">names</span>(par))], <span class="at">ncol =</span> <span class="dv">1</span>,</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), <span class="cn">NULL</span>))</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Transition error covariance matrix</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>  Qm <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">unlist</span>(<span class="fu">lapply</span>(factors, <span class="cf">function</span>(x){<span class="fu">paste0</span>(<span class="st">&quot;sig_&quot;</span>, x, factors)}))], <span class="at">nrow =</span> <span class="dv">3</span>, <span class="at">ncol =</span> <span class="dv">3</span>)</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>  Qm[<span class="fu">lower.tri</span>(Qm)] <span class="ot">=</span> Qm[<span class="fu">upper.tri</span>(Qm)]</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dimnames</span>(Qm) <span class="ot">=</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), <span class="fu">rownames</span>(Fm))</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Observation equation matrix</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>  n <span class="ot">=</span> <span class="fu">length</span>(tau)</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>  Hm <span class="ot">=</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, <span class="at">nrow =</span> n, <span class="at">ncol =</span> <span class="dv">3</span>, </span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">as.character</span>(tau), <span class="fu">rownames</span>(Fm)))</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>  tau <span class="ot">=</span> <span class="fu">as.numeric</span>(tau)</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(<span class="st">&quot;l&quot;</span> <span class="sc">%in%</span> factors){</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>    Hm[, <span class="st">&quot;l_t0&quot;</span>] <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(<span class="st">&quot;s&quot;</span> <span class="sc">%in%</span> factors){</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>    Hm[, <span class="st">&quot;s_t0&quot;</span>] <span class="ot">=</span> <span class="fu">Ls</span>(par, tau)</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(<span class="st">&quot;c&quot;</span> <span class="sc">%in%</span> factors){</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>    Hm[, <span class="st">&quot;c_t0&quot;</span>] <span class="ot">=</span> <span class="fu">Lc</span>(par, tau)</span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Observation error variance covariance matrix</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>  Rm <span class="ot">=</span> <span class="fu">diag</span>(<span class="fu">sum</span>(<span class="fu">grepl</span>(<span class="st">&quot;sig_</span><span class="sc">\\</span><span class="st">d+&quot;</span>, <span class="fu">names</span>(par))))<span class="sc">*</span>par[<span class="fu">grepl</span>(<span class="st">&quot;sig_</span><span class="sc">\\</span><span class="st">d+&quot;</span>, <span class="fu">names</span>(par))]<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dimnames</span>(Rm) <span class="ot">=</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Hm), <span class="fu">rownames</span>(Hm))</span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Observation intercept matrix</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>  Am <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> <span class="fu">nrow</span>(Hm), <span class="at">ncol =</span> <span class="dv">1</span>, </span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Hm), <span class="cn">NULL</span>))</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Initial guess for the unobserved vector</span></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>  B0 <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">names</span>(par) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;level&quot;</span>, <span class="st">&quot;slope&quot;</span>, <span class="st">&quot;curvature&quot;</span>)], <span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">nrow =</span> <span class="fu">nrow</span>(Fm), </span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), <span class="cn">NULL</span>))</span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Initial guess for the variance of the unobserved vector</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>  P0 <span class="ot">=</span> <span class="fu">diag</span>(par[<span class="st">&quot;P0&quot;</span>]<span class="sc">^</span><span class="dv">2</span>, <span class="at">nrow =</span> <span class="fu">nrow</span>(Qm), <span class="at">ncol =</span> <span class="fu">ncol</span>(Qm))</span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">Fm =</span> Fm, <span class="at">Dm =</span> Dm, <span class="at">Qm =</span> Qm, </span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>              <span class="at">Hm =</span> Hm, <span class="at">Am =</span> Am, <span class="at">Rm =</span> Rm, </span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>              <span class="at">B0 =</span> B0, <span class="at">P0 =</span> P0))</span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a><span class="co">#Set the initial values</span></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>init <span class="ot">=</span> <span class="fu">c</span>(<span class="at">level =</span> <span class="fl">5.9030</span>, <span class="at">slope =</span> <span class="sc">-</span><span class="fl">0.7090</span>, <span class="at">curvature =</span> <span class="fl">0.8690</span>, <span class="at">lambda =</span> <span class="fl">0.0423</span>, </span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>         <span class="at">D_l =</span> <span class="fl">0.1234</span>, <span class="at">D_s =</span> <span class="sc">-</span><span class="fl">0.2285</span>, <span class="at">D_c =</span> <span class="fl">0.2020</span>, </span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>         <span class="at">phi_ll =</span> <span class="fl">0.9720</span>, <span class="at">phi_ls =</span> <span class="fl">0.1009</span>, <span class="at">phi_lc =</span> <span class="sc">-</span><span class="fl">0.1226</span>, </span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>         <span class="at">phi_sl =</span> <span class="sc">-</span><span class="fl">0.0209</span>, <span class="at">phi_ss =</span> <span class="fl">0.8189</span>, <span class="at">phi_sc =</span> <span class="fl">0.0192</span>, </span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>         <span class="at">phi_cl =</span> <span class="sc">-</span><span class="fl">0.0061</span>, <span class="at">phi_cs =</span> <span class="sc">-</span><span class="fl">0.1446</span>, <span class="at">phi_cc =</span> <span class="fl">0.8808</span>, </span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_ll =</span> <span class="fl">0.1017</span>, </span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_sl =</span> <span class="fl">0.0937</span>, <span class="at">sig_ss =</span> <span class="fl">0.2267</span>,</span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_cl =</span> <span class="fl">0.0303</span>, <span class="at">sig_cs =</span> <span class="fl">0.0351</span>, <span class="at">sig_cc =</span> <span class="fl">0.7964</span>, </span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_1 =</span> <span class="fl">0.0934</span>, <span class="at">sig_3 =</span> <span class="fl">0.0001</span>, <span class="at">sig_6 =</span> <span class="fl">0.1206</span>, <span class="at">sig_12 =</span> <span class="fl">0.1525</span>, </span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_24 =</span> <span class="fl">0.1328</span>, <span class="at">sig_36 =</span> <span class="fl">0.0855</span>, <span class="at">sig_60 =</span> <span class="fl">0.0001</span>, <span class="at">sig_84 =</span> <span class="fl">0.0397</span>, </span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_120 =</span> <span class="fl">0.0595</span>, <span class="at">sig_240 =</span> <span class="fl">0.1438</span>, <span class="at">sig_360 =</span> <span class="fl">0.1450</span>, </span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>         <span class="at">P0 =</span> <span class="fl">0.0001</span>)</span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a><span class="co">#Set up the constraints: lambda and all standard deviation parameters must be positive</span></span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a>ineqA <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> <span class="dv">15</span>, <span class="at">ncol =</span> <span class="fu">length</span>(init), <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="cn">NULL</span>, <span class="fu">names</span>(init)))</span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a><span class="fu">diag</span>(ineqA[, <span class="fu">c</span>(<span class="st">&quot;lambda&quot;</span>, <span class="st">&quot;sig_ll&quot;</span>, <span class="st">&quot;sig_ss&quot;</span>, <span class="st">&quot;sig_cc&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;sig_&quot;</span>, tau))]) <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>ineqB <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> <span class="fu">nrow</span>(ineqA), <span class="at">ncol =</span> <span class="dv">1</span>)</span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a><span class="co">#Convert to an NxT matrix</span></span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>yt <span class="ot">=</span> <span class="fu">dcast</span>(treasuries, <span class="st">&quot;date ~ maturity&quot;</span>, <span class="at">value.var =</span> <span class="st">&quot;value&quot;</span>)</span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>yt <span class="ot">=</span> <span class="fu">t</span>(yt[, <span class="dv">2</span><span class="sc">:</span><span class="fu">ncol</span>(yt)])</span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a><span class="co">#Set the objective function</span></span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a>objective <span class="ot">=</span> <span class="cf">function</span>(par){</span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a>  ssm <span class="ot">=</span> <span class="fu">yc_ssm</span>(par, tau)</span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">kalman_filter</span>(ssm, yt,)<span class="sc">$</span>lnl)</span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a><span class="co">#Solve the model</span></span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a>solve <span class="ot">=</span> <span class="fu">maxLik</span>(<span class="at">logLik =</span> objective, <span class="at">start =</span> init, <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>,</span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a>               <span class="at">finalHessian =</span> <span class="cn">FALSE</span>, <span class="at">hess =</span> <span class="cn">NULL</span>,</span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a>               <span class="at">control =</span> <span class="fu">list</span>(<span class="at">printLevel =</span> <span class="dv">2</span>, <span class="at">iterlim =</span> <span class="dv">10000</span>), </span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>               <span class="at">constraints =</span> <span class="fu">list</span>(<span class="at">ineqA =</span> ineqA, <span class="at">ineqB =</span> ineqB))</span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the estimated state space model</span></span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a>ssm <span class="ot">=</span> <span class="fu">yc_ssm</span>(solve<span class="sc">$</span>estimate, tau)</span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a><span class="co">#Filter the data with the model</span></span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a>filter <span class="ot">=</span> <span class="fu">kalman_filter</span>(ssm, yt, <span class="at">smooth =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the estimated unobserved factors</span></span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a>B_tt <span class="ot">=</span> <span class="fu">data.table</span>(<span class="fu">t</span>(filter[[<span class="st">&quot;B_tt&quot;</span>]]))[, <span class="st">&quot;date&quot;</span> <span class="sc">:</span><span class="er">=</span> <span class="fu">unique</span>(treasuries<span class="sc">$</span>date)]</span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(B_tt)[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>] <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;level&quot;</span>, <span class="st">&quot;slope&quot;</span>, <span class="st">&quot;curvature&quot;</span>)</span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the estimated yields</span></span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>y_tt <span class="ot">=</span> <span class="fu">data.table</span>(<span class="fu">t</span>(filter[[<span class="st">&quot;y_tt&quot;</span>]]))[, <span class="st">&quot;date&quot;</span> <span class="sc">:</span><span class="er">=</span> <span class="fu">unique</span>(treasuries<span class="sc">$</span>date)]</span>
+<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(y_tt)[<span class="dv">1</span><span class="sc">:</span>(<span class="fu">ncol</span>(y_tt) <span class="sc">-</span> <span class="dv">1</span>)] <span class="ot">=</span> tau</span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a><span class="co">#Plot the data</span></span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a>g1 <span class="ot">=</span> <span class="fu">ggplot</span>(treasuries, <span class="at">id.vars =</span> <span class="st">&quot;date&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> value, <span class="at">group =</span> <span class="fu">factor</span>(maturity), <span class="at">color =</span> <span class="fu">factor</span>(maturity))) <span class="sc">+</span> </span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Actual Treasury Yields&quot;</span>, <span class="at">x =</span> <span class="st">&quot;&quot;</span>, <span class="at">y =</span> <span class="st">&quot;Value&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>))</span>
+<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a>g2 <span class="ot">=</span> <span class="fu">ggplot</span>(<span class="fu">melt</span>(y_tt, <span class="at">id.vars =</span> <span class="st">&quot;date&quot;</span>)) <span class="sc">+</span> </span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> value, <span class="at">group =</span> variable, <span class="at">color =</span> variable)) <span class="sc">+</span> </span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Estimated Treasury Yields&quot;</span>, <span class="at">x =</span> <span class="st">&quot;&quot;</span>, <span class="at">y =</span> <span class="st">&quot;Value&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>))</span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a>g3 <span class="ot">=</span> <span class="fu">ggplot</span>(<span class="fu">melt</span>(B_tt, <span class="at">id.vars =</span> <span class="st">&quot;date&quot;</span>)) <span class="sc">+</span> </span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> value, <span class="at">group =</span> variable, <span class="at">color =</span> variable)) <span class="sc">+</span> </span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="sc">+</span></span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Estimated Factors&quot;</span>, <span class="at">x =</span> <span class="st">&quot;&quot;</span>, <span class="at">y =</span> <span class="st">&quot;Value&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>))</span>
+<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(g1, g2, g3, <span class="at">layout_matrix =</span> <span class="fu">rbind</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">3</span>)))</span></code></pre></div>
+</div>
+<div id="stock-and-watson-dynamic-common-factor-model" class="section level2">
+<h2>Stock and Watson Dynamic Common Factor Model</h2>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(kalmanfilter)</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(maxLik)</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(data.table)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(maxLik)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(gridExtra)</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(treasuries)</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>tau <span class="ot">=</span> <span class="fu">unique</span>(treasuries<span class="sc">$</span>maturity)</span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">#State space model for the Nelson-Siegel dynamic factor yield curve</span></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>yc_ssm <span class="ot">=</span> <span class="cf">function</span>(par, tau){</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Set factor names</span></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  tau <span class="ot">=</span> <span class="fu">unique</span>(tau)</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  factors <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;l&quot;</span>, <span class="st">&quot;s&quot;</span>, <span class="st">&quot;c&quot;</span>)</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Loading on the slope factor</span></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  Ls <span class="ot">=</span> <span class="cf">function</span>(par, tau){</span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">return</span>(<span class="sc">-</span>(<span class="dv">1</span> <span class="sc">-</span> <span class="fu">exp</span>(<span class="sc">-</span>tau<span class="sc">*</span>par[<span class="st">&quot;lambda&quot;</span>]))<span class="sc">/</span>(tau<span class="sc">*</span>par[<span class="st">&quot;lambda&quot;</span>]))</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Loading on the curvature factor</span></span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  Lc <span class="ot">=</span> <span class="cf">function</span>(par, tau){</span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="fu">return</span>(<span class="sc">-</span><span class="fu">Ls</span>(par[<span class="st">&quot;lambda&quot;</span>], tau) <span class="sc">-</span> <span class="fu">exp</span>(<span class="sc">-</span>tau<span class="sc">*</span>par[<span class="st">&quot;lambda&quot;</span>]))</span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>  <span class="do">########## Define the state space model</span></span>
-<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Transition matrix</span></span>
-<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>  Fm <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">grepl</span>(<span class="st">&quot;phi_&quot;</span>, <span class="fu">names</span>(par))], <span class="at">nrow =</span> <span class="dv">3</span>, <span class="at">ncol =</span> <span class="dv">3</span>,</span>
-<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">paste0</span>(factors, <span class="st">&quot;_t0&quot;</span>),</span>
-<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>                              <span class="fu">paste0</span>(factors, <span class="st">&quot;_t1&quot;</span>)))</span>
-<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>  Fm[<span class="fu">is.na</span>(Fm)] <span class="ot">=</span> <span class="dv">0</span></span>
-<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Transition exogenous matrix</span></span>
-<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>  betaS <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">grepl</span>(<span class="st">&quot;betaS_&quot;</span>, <span class="fu">names</span>(par))], <span class="at">nrow =</span> <span class="dv">3</span>, </span>
-<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>                 <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), </span>
-<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>                                 <span class="fu">unique</span>(<span class="fu">sapply</span>(<span class="fu">names</span>(par)[<span class="fu">grepl</span>(<span class="st">&quot;betaS_&quot;</span>, <span class="fu">names</span>(par))], <span class="cf">function</span>(x){</span>
-<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>                                   s <span class="ot">=</span> <span class="fu">strsplit</span>(x, <span class="st">&quot;</span><span class="sc">\\</span><span class="st">.&quot;</span>)[[<span class="dv">1</span>]]</span>
-<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>                                   <span class="fu">return</span>(<span class="fu">paste</span>(s[<span class="dv">2</span><span class="sc">:</span><span class="fu">length</span>(s)], <span class="at">collapse =</span> <span class="st">&quot;.&quot;</span>))</span>
-<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>                                 }))))</span>
-<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Transition intercept matrix</span></span>
-<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>  Dm <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">grepl</span>(<span class="st">&quot;D_&quot;</span>, <span class="fu">names</span>(par))], <span class="at">ncol =</span> <span class="dv">1</span>,</span>
-<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), <span class="cn">NULL</span>))</span>
-<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Transition error covariance matrix</span></span>
-<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>  Qm <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">unlist</span>(<span class="fu">lapply</span>(factors, <span class="cf">function</span>(x){<span class="fu">paste0</span>(<span class="st">&quot;sig_&quot;</span>, x, factors)}))], <span class="at">nrow =</span> <span class="dv">3</span>, <span class="at">ncol =</span> <span class="dv">3</span>)</span>
-<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>  Qm[<span class="fu">lower.tri</span>(Qm)] <span class="ot">=</span> Qm[<span class="fu">upper.tri</span>(Qm)]</span>
-<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dimnames</span>(Qm) <span class="ot">=</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), <span class="fu">rownames</span>(Fm))</span>
-<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Observation equation matrix</span></span>
-<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>  n <span class="ot">=</span> <span class="fu">length</span>(tau)</span>
-<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>  Hm <span class="ot">=</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, <span class="at">nrow =</span> n, <span class="at">ncol =</span> <span class="dv">3</span>, </span>
-<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">as.character</span>(tau), <span class="fu">rownames</span>(Fm)))</span>
-<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  tau <span class="ot">=</span> <span class="fu">as.numeric</span>(tau)</span>
-<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(<span class="st">&quot;l&quot;</span> <span class="sc">%in%</span> factors){</span>
-<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>    Hm[, <span class="st">&quot;l_t0&quot;</span>] <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(sw_dcf)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>data <span class="ot">=</span> sw_dcf[, <span class="fu">colnames</span>(sw_dcf) <span class="sc">!=</span> <span class="st">&quot;dcoinc&quot;</span>, with <span class="ot">=</span> F]</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>vars <span class="ot">=</span> <span class="fu">colnames</span>(data)[<span class="fu">colnames</span>(data) <span class="sc">!=</span> <span class="st">&quot;date&quot;</span>]</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">#State space model for the Stock and Watson Dynamic Common Factor model</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>dcf_ssm <span class="ot">=</span> <span class="cf">function</span>(par, yt){</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Get the parameters</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>  vars <span class="ot">=</span> <span class="fu">dimnames</span>(yt)[<span class="fu">which</span>(<span class="fu">unlist</span>(<span class="fu">lapply</span>(<span class="fu">dimnames</span>(yt), <span class="cf">function</span>(x){<span class="sc">!</span><span class="fu">is.null</span>(x)})))][[<span class="dv">1</span>]]</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>  phi <span class="ot">=</span> par[<span class="fu">grepl</span>(<span class="st">&quot;phi&quot;</span>, <span class="fu">names</span>(par))]</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">names</span>(phi) <span class="ot">=</span> <span class="fu">gsub</span>(<span class="st">&quot;phi&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="fu">names</span>(phi))</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  gamma <span class="ot">=</span> par[<span class="fu">grepl</span>(<span class="st">&quot;gamma_&quot;</span>, <span class="fu">names</span>(par))]</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">names</span>(gamma) <span class="ot">=</span> <span class="fu">gsub</span>(<span class="st">&quot;gamma_&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="fu">names</span>(gamma))</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>  psi <span class="ot">=</span> par[<span class="fu">grepl</span>(<span class="st">&quot;psi_&quot;</span>, <span class="fu">names</span>(par))]</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">names</span>(psi) <span class="ot">=</span> <span class="fu">gsub</span>(<span class="st">&quot;psi_&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="fu">names</span>(psi))</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>  sig <span class="ot">=</span> par[<span class="fu">grepl</span>(<span class="st">&quot;sigma_&quot;</span>, <span class="fu">names</span>(par))]</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">names</span>(sig) <span class="ot">=</span> <span class="fu">gsub</span>(<span class="st">&quot;sigma_&quot;</span>, <span class="st">&quot;&quot;</span>, <span class="fu">names</span>(sig))</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Build the transition matrix </span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>  phi_dim <span class="ot">=</span> <span class="fu">max</span>(<span class="fu">c</span>(<span class="fu">length</span>(phi)), <span class="fu">length</span>(<span class="fu">unique</span>(<span class="fu">sapply</span>(<span class="fu">strsplit</span>(<span class="fu">names</span>(gamma), <span class="st">&quot;</span><span class="sc">\\</span><span class="st">.&quot;</span>), <span class="cf">function</span>(x){x[<span class="dv">2</span>]}))))</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>  psi_dim <span class="ot">=</span> <span class="fu">sapply</span>(<span class="fu">unique</span>(<span class="fu">sapply</span>(<span class="fu">strsplit</span>(<span class="fu">names</span>(psi), <span class="st">&quot;</span><span class="sc">\\</span><span class="st">.&quot;</span>), <span class="cf">function</span>(x){x[<span class="dv">1</span>]})), <span class="cf">function</span>(x){</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">max</span>(<span class="fu">as.numeric</span>(<span class="fu">sapply</span>(<span class="fu">strsplit</span>(<span class="fu">names</span>(psi)[<span class="fu">grepl</span>(<span class="fu">paste0</span>(<span class="st">&quot;^&quot;</span>, x), <span class="fu">names</span>(psi))], <span class="st">&quot;</span><span class="sc">\\</span><span class="st">.&quot;</span>), <span class="cf">function</span>(x){x[<span class="dv">2</span>]})))</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>  })</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>  Fm <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> phi_dim <span class="sc">+</span> <span class="fu">length</span>(psi), <span class="at">ncol =</span> phi_dim <span class="sc">+</span> <span class="fu">length</span>(psi), </span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>                <span class="fu">c</span>(<span class="fu">paste0</span>(<span class="st">&quot;ct.&quot;</span>, <span class="dv">0</span><span class="sc">:</span>(phi_dim <span class="sc">-</span> <span class="dv">1</span>)), </span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">unlist</span>(<span class="fu">lapply</span>(<span class="fu">names</span>(psi_dim), <span class="cf">function</span>(x){<span class="fu">paste0</span>(<span class="st">&quot;e_&quot;</span>, x, <span class="st">&quot;.&quot;</span>, <span class="dv">0</span><span class="sc">:</span>(psi_dim[x] <span class="sc">-</span> <span class="dv">1</span>))}))),</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>                <span class="fu">c</span>(<span class="fu">paste0</span>(<span class="st">&quot;ct.&quot;</span>, <span class="dv">1</span><span class="sc">:</span>phi_dim), </span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>                  <span class="fu">unlist</span>(<span class="fu">lapply</span>(<span class="fu">names</span>(psi_dim), <span class="cf">function</span>(x){<span class="fu">paste0</span>(<span class="st">&quot;e_&quot;</span>, x, <span class="st">&quot;.&quot;</span>, <span class="dv">1</span><span class="sc">:</span>psi_dim[x])})))</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>              ))</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>  Fm[<span class="st">&quot;ct.0&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;ct.&quot;</span>, <span class="fu">names</span>(phi))] <span class="ot">=</span> phi</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(vars)){</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>    Fm[<span class="fu">paste0</span>(<span class="st">&quot;e_&quot;</span>, i, <span class="st">&quot;.0&quot;</span>), </span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>       <span class="fu">paste0</span>(<span class="st">&quot;e_&quot;</span>, <span class="fu">names</span>(psi)[<span class="fu">grepl</span>(<span class="fu">paste0</span>(<span class="st">&quot;^&quot;</span>, i), <span class="fu">names</span>(psi))])] <span class="ot">=</span> psi[<span class="fu">grepl</span>(<span class="fu">paste0</span>(<span class="st">&quot;^&quot;</span>, i), <span class="fu">names</span>(psi))]</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">diag</span>(Fm[<span class="fu">intersect</span>(<span class="fu">rownames</span>(Fm), <span class="fu">colnames</span>(Fm)), <span class="fu">intersect</span>(<span class="fu">rownames</span>(Fm), <span class="fu">colnames</span>(Fm))]) <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Build the observation matrix</span></span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>  Hm <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> <span class="fu">nrow</span>(yt), <span class="at">ncol =</span> <span class="fu">nrow</span>(Fm), <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(yt), <span class="fu">rownames</span>(Fm)))</span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(vars)){</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>    Hm[i, <span class="fu">paste0</span>(<span class="st">&quot;ct.&quot;</span>, <span class="fu">sapply</span>(<span class="fu">strsplit</span>(<span class="fu">names</span>(gamma)[<span class="fu">grepl</span>(<span class="fu">paste0</span>(<span class="st">&quot;^&quot;</span>, i), <span class="fu">names</span>(gamma))], <span class="st">&quot;</span><span class="sc">\\</span><span class="st">.&quot;</span>), <span class="cf">function</span>(x){x[<span class="dv">2</span>]}))] <span class="ot">=</span> </span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>      gamma[<span class="fu">grepl</span>(<span class="fu">paste0</span>(<span class="st">&quot;^&quot;</span>, i), <span class="fu">names</span>(gamma))]</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>  <span class="fu">diag</span>(Hm[, <span class="fu">paste0</span>(<span class="st">&quot;e_&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(vars), <span class="st">&quot;.0&quot;</span>)]) <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Build the state covariance matrix</span></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Set the dynamic common factor standard deviation to 1</span></span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>  Qm <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">ncol =</span> <span class="fu">ncol</span>(Fm), <span class="at">nrow =</span> <span class="fu">nrow</span>(Fm), <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), <span class="fu">rownames</span>(Fm)))</span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>  Qm[<span class="st">&quot;ct.0&quot;</span>, <span class="st">&quot;ct.0&quot;</span>] <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(vars)){</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>    Qm[<span class="fu">paste0</span>(<span class="st">&quot;e_&quot;</span>, i, <span class="st">&quot;.0&quot;</span>), <span class="fu">paste0</span>(<span class="st">&quot;e_&quot;</span>, i, <span class="st">&quot;.0&quot;</span>)] <span class="ot">=</span> sig[<span class="fu">names</span>(sig) <span class="sc">==</span> i]<span class="sc">^</span><span class="dv">2</span></span>
 <span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(<span class="st">&quot;s&quot;</span> <span class="sc">%in%</span> factors){</span>
-<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>    Hm[, <span class="st">&quot;s_t0&quot;</span>] <span class="ot">=</span> <span class="fu">Ls</span>(par, tau)</span>
-<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(<span class="st">&quot;c&quot;</span> <span class="sc">%in%</span> factors){</span>
-<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>    Hm[, <span class="st">&quot;c_t0&quot;</span>] <span class="ot">=</span> <span class="fu">Lc</span>(par, tau)</span>
-<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Build the observation equation covariance matrix</span></span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>  Rm <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">ncol =</span> <span class="fu">nrow</span>(Hm), <span class="at">nrow =</span> <span class="fu">nrow</span>(Hm), <span class="at">dimnames =</span> <span class="fu">list</span>(vars, vars))</span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Transition equation intercept matrix</span></span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>  Dm <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> <span class="fu">nrow</span>(Fm), <span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), <span class="cn">NULL</span>))</span>
 <span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a>  betaO <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">grepl</span>(<span class="st">&quot;betaO_&quot;</span>, <span class="fu">names</span>(par))], <span class="at">nrow =</span> n, </span>
-<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>                 <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Hm), </span>
-<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a>                                 <span class="fu">unique</span>(<span class="fu">sapply</span>(<span class="fu">names</span>(par)[<span class="fu">grepl</span>(<span class="st">&quot;betaO_&quot;</span>, <span class="fu">names</span>(par))], <span class="cf">function</span>(x){</span>
-<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>                                   s <span class="ot">=</span> <span class="fu">strsplit</span>(x, <span class="st">&quot;</span><span class="sc">\\</span><span class="st">.&quot;</span>)[[<span class="dv">1</span>]]</span>
-<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>                                   <span class="fu">return</span>(<span class="fu">paste</span>(s[<span class="dv">2</span><span class="sc">:</span><span class="fu">length</span>(s)], <span class="at">collapse =</span> <span class="st">&quot;.&quot;</span>))</span>
-<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>                                 }))))</span>
-<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Observation error variance covariance matrix</span></span>
-<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a>  Rm <span class="ot">=</span> <span class="fu">diag</span>(<span class="fu">sum</span>(<span class="fu">grepl</span>(<span class="st">&quot;sig_</span><span class="sc">\\</span><span class="st">d+&quot;</span>, <span class="fu">names</span>(par))))<span class="sc">*</span>par[<span class="fu">grepl</span>(<span class="st">&quot;sig_</span><span class="sc">\\</span><span class="st">d+&quot;</span>, <span class="fu">names</span>(par))]<span class="sc">^</span><span class="dv">2</span></span>
-<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dimnames</span>(Rm) <span class="ot">=</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Hm), <span class="fu">rownames</span>(Hm))</span>
-<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Observation intercept matrix</span></span>
-<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a>  Am <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">grepl</span>(<span class="st">&quot;A_&quot;</span>, <span class="fu">names</span>(par))], <span class="at">nrow =</span> <span class="fu">nrow</span>(Hm), <span class="at">ncol =</span> <span class="dv">1</span>, </span>
-<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Hm), <span class="cn">NULL</span>))</span>
-<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Initial guess for the unobserved vector</span></span>
-<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a>  B0 <span class="ot">=</span> <span class="fu">matrix</span>(par[<span class="fu">names</span>(par) <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;level&quot;</span>, <span class="st">&quot;slope&quot;</span>, <span class="st">&quot;curvature&quot;</span>)], <span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">nrow =</span> <span class="fu">nrow</span>(Fm), </span>
-<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a>              <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), <span class="cn">NULL</span>))</span>
-<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Initial guess for the variance of the unobserved vector</span></span>
-<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a>  P0 <span class="ot">=</span> <span class="fu">diag</span>(par[<span class="st">&quot;P0&quot;</span>]<span class="sc">^</span><span class="dv">2</span>, <span class="at">nrow =</span> <span class="fu">nrow</span>(Qm), <span class="at">ncol =</span> <span class="fu">ncol</span>(Qm))</span>
-<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">Fm =</span> Fm, <span class="at">Dm =</span> Dm, <span class="at">Qm =</span> Qm, </span>
-<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a>              <span class="at">Hm =</span> Hm, <span class="at">Am =</span> Am, <span class="at">Rm =</span> Rm, </span>
-<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a>              <span class="at">betaO =</span> betaO, <span class="at">betaS =</span> betaS,</span>
-<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a>              <span class="at">B0 =</span> B0, <span class="at">P0 =</span> P0))</span>
-<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a><span class="co">#Set the initial values</span></span>
-<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a>init <span class="ot">=</span> <span class="fu">c</span>(<span class="at">level =</span> <span class="fl">5.73</span>, <span class="at">slope =</span> <span class="sc">-</span><span class="fl">0.46</span>, <span class="at">curvature =</span> <span class="fl">0.67</span>, <span class="at">lambda =</span> <span class="fl">0.04</span>, </span>
-<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a>         <span class="at">D_l =</span> <span class="fl">0.14</span>, <span class="at">D_s =</span> <span class="sc">-</span><span class="fl">0.08</span>, <span class="at">D_c =</span> <span class="fl">0.24</span>, </span>
-<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>         <span class="at">phi_ll =</span> <span class="fl">0.97</span>, <span class="at">phi_ls =</span> <span class="sc">-</span><span class="fl">0.02</span>, <span class="at">phi_lc =</span> <span class="fl">0.01</span>, </span>
-<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a>         <span class="at">phi_sl =</span> <span class="fl">0.082</span>, <span class="at">phi_ss =</span> <span class="fl">0.79</span>, <span class="at">phi_sc =</span> <span class="sc">-</span><span class="fl">0.14</span>, </span>
-<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a>         <span class="at">phi_cl =</span> <span class="sc">-</span><span class="fl">0.15</span>, <span class="at">phi_cs =</span> <span class="fl">0.05</span>, <span class="at">phi_cc =</span> <span class="fl">0.88</span>, </span>
-<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a>         <span class="at">betaS_l.X =</span> <span class="dv">0</span>, <span class="at">betaS_s.X =</span> <span class="dv">0</span>, <span class="at">betaS_c.X =</span> <span class="dv">0</span>, </span>
-<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_ll =</span> <span class="fl">0.13</span>, </span>
-<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_sl =</span> <span class="fl">0.12</span>, <span class="at">sig_ss =</span> <span class="fl">0.24</span>,</span>
-<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_cl =</span> <span class="sc">-</span><span class="fl">0.05</span>, <span class="at">sig_cs =</span> <span class="sc">-</span><span class="fl">0.08</span>, <span class="at">sig_cc =</span> <span class="fl">1.03</span>, </span>
-<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a>         <span class="at">A_1 =</span> <span class="dv">0</span>, <span class="at">A_3 =</span> <span class="dv">0</span>, <span class="at">A_6 =</span> <span class="dv">0</span>, <span class="at">A_12 =</span> <span class="dv">0</span>, <span class="at">A_24 =</span> <span class="dv">0</span>, </span>
-<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a>         <span class="at">A_36 =</span> <span class="dv">0</span>, <span class="at">A_60 =</span> <span class="dv">0</span>, <span class="at">A_84 =</span> <span class="dv">0</span>, <span class="at">A_120 =</span> <span class="dv">0</span>, <span class="at">A_240 =</span> <span class="dv">0</span>, <span class="at">A_360 =</span> <span class="dv">0</span>, </span>
-<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a>         <span class="at">betaO_1.X =</span> <span class="dv">0</span>, <span class="at">betaO_3.X =</span> <span class="dv">0</span>, <span class="at">betaO_6.X =</span> <span class="dv">0</span>, <span class="at">betaO_12.X =</span> <span class="dv">0</span>, </span>
-<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a>         <span class="at">betaO_24.X =</span> <span class="dv">0</span>, <span class="at">betaO_36.X =</span> <span class="dv">0</span>, <span class="at">betaO_60.X =</span> <span class="dv">0</span>, <span class="at">betaO_84.X =</span> <span class="dv">0</span>, </span>
-<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a>         <span class="at">betaO_120.X =</span> <span class="dv">0</span>, <span class="at">betaO_240.X =</span> <span class="dv">0</span>, <span class="at">betaO_360.X =</span> <span class="dv">0</span>, </span>
-<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_1 =</span> <span class="fl">0.08</span>, <span class="at">sig_3 =</span> <span class="fl">0.01</span>, <span class="at">sig_6 =</span> <span class="fl">0.11</span>, <span class="at">sig_12 =</span> <span class="fl">0.12</span>, </span>
-<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_24 =</span> <span class="fl">0.07</span>, <span class="at">sig_36 =</span> <span class="fl">0.01</span>, <span class="at">sig_60 =</span> <span class="fl">0.06</span>, <span class="at">sig_84 =</span> <span class="fl">0.07</span>, </span>
-<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a>         <span class="at">sig_120 =</span> <span class="fl">0.04</span>, <span class="at">sig_240 =</span> <span class="fl">0.18</span>, <span class="at">sig_360 =</span> <span class="fl">0.2</span>, </span>
-<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a>         <span class="at">P0 =</span> <span class="fl">0.01</span>)</span>
-<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a><span class="co">#Define the fixed values: not using exogenous data or observation intercept</span></span>
-<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a>fixed <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;betaS_l.x&quot;</span>, <span class="st">&quot;betaS_s.X&quot;</span>, <span class="st">&quot;betaS_c.X&quot;</span>, </span>
-<span id="cb3-114"><a href="#cb3-114" aria-hidden="true" tabindex="-1"></a>          <span class="st">&quot;A_1&quot;</span>, <span class="st">&quot;A_3&quot;</span>, <span class="st">&quot;A_6&quot;</span>, <span class="st">&quot;A_12&quot;</span>, <span class="st">&quot;A_24&quot;</span>, <span class="st">&quot;A_36&quot;</span>, <span class="st">&quot;A_60&quot;</span>, </span>
-<span id="cb3-115"><a href="#cb3-115" aria-hidden="true" tabindex="-1"></a>          <span class="st">&quot;A_84&quot;</span>, <span class="st">&quot;A_120&quot;</span>, <span class="st">&quot;A_240&quot;</span>, <span class="st">&quot;A_360&quot;</span>, </span>
-<span id="cb3-116"><a href="#cb3-116" aria-hidden="true" tabindex="-1"></a>          <span class="st">&quot;betaO_1.X&quot;</span>, <span class="st">&quot;betaO_3.X&quot;</span>, <span class="st">&quot;betaO_6.X&quot;</span>, <span class="st">&quot;betaO_12.X&quot;</span>, </span>
-<span id="cb3-117"><a href="#cb3-117" aria-hidden="true" tabindex="-1"></a>          <span class="st">&quot;betaO_24.X&quot;</span>, <span class="st">&quot;betaO_36.X&quot;</span>, <span class="st">&quot;betaO_60.X&quot;</span>, <span class="st">&quot;betaO_84.X&quot;</span>, </span>
-<span id="cb3-118"><a href="#cb3-118" aria-hidden="true" tabindex="-1"></a>          <span class="st">&quot;betaO_120.X&quot;</span>, <span class="st">&quot;betaO_240.X&quot;</span>, <span class="st">&quot;betaO_360.X&quot;</span>)</span>
-<span id="cb3-119"><a href="#cb3-119" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-120"><a href="#cb3-120" aria-hidden="true" tabindex="-1"></a><span class="co">#Set up the constraints: lambda and all standard deviation parameters must be positive</span></span>
-<span id="cb3-121"><a href="#cb3-121" aria-hidden="true" tabindex="-1"></a>ineqA <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> <span class="dv">15</span>, <span class="at">ncol =</span> <span class="fu">length</span>(init), <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="cn">NULL</span>, <span class="fu">names</span>(init)))</span>
-<span id="cb3-122"><a href="#cb3-122" aria-hidden="true" tabindex="-1"></a><span class="fu">diag</span>(ineqA[, <span class="fu">c</span>(<span class="st">&quot;lambda&quot;</span>, <span class="st">&quot;sig_ll&quot;</span>, <span class="st">&quot;sig_ss&quot;</span>, <span class="st">&quot;sig_cc&quot;</span>, <span class="fu">paste0</span>(<span class="st">&quot;sig_&quot;</span>, tau))]) <span class="ot">=</span> <span class="dv">1</span></span>
-<span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a>ineqB <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> <span class="fu">nrow</span>(ineqA), <span class="at">ncol =</span> <span class="dv">1</span>)</span>
-<span id="cb3-124"><a href="#cb3-124" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a><span class="co">#Convert to an NxT matrix</span></span>
-<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a>yt <span class="ot">=</span> <span class="fu">dcast</span>(treasuries, <span class="st">&quot;date ~ maturity&quot;</span>, <span class="at">value.var =</span> <span class="st">&quot;value&quot;</span>)</span>
-<span id="cb3-127"><a href="#cb3-127" aria-hidden="true" tabindex="-1"></a>yt <span class="ot">=</span> <span class="fu">t</span>(yt[, <span class="dv">2</span><span class="sc">:</span><span class="fu">ncol</span>(yt)])</span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Observation equation intercept matrix</span></span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a>  Am <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> <span class="fu">nrow</span>(Hm), <span class="at">ncol =</span> <span class="dv">1</span>)</span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Initialize the filter for each state</span></span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>  B0 <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="fu">nrow</span>(Fm), <span class="dv">1</span>)</span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>  P0 <span class="ot">=</span> <span class="fu">diag</span>(<span class="fu">nrow</span>(Fm))</span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dimnames</span>(B0) <span class="ot">=</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), <span class="cn">NULL</span>)</span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>  <span class="fu">dimnames</span>(P0) <span class="ot">=</span> <span class="fu">list</span>(<span class="fu">rownames</span>(Fm), <span class="fu">rownames</span>(Fm))</span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a>  B0 <span class="ot">=</span> <span class="fu">solve</span>(<span class="fu">diag</span>(<span class="fu">ncol</span>(Fm)) <span class="sc">-</span> Fm) <span class="sc">%*%</span> Dm</span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a>  VecP_ll <span class="ot">=</span> <span class="fu">solve</span>(<span class="fu">diag</span>(<span class="fu">prod</span>(<span class="fu">dim</span>(Fm))) <span class="sc">-</span> <span class="fu">kronecker</span>(Fm, Fm)) <span class="sc">%*%</span> <span class="fu">matrix</span>(<span class="fu">as.vector</span>(Qm), <span class="at">ncol =</span> <span class="dv">1</span>)</span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a>  P0 <span class="ot">=</span> <span class="fu">matrix</span>(VecP_ll[, <span class="dv">1</span>], <span class="at">ncol =</span> <span class="fu">ncol</span>(Fm))</span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">list</span>(<span class="at">B0 =</span> B0, <span class="at">P0 =</span> P0, <span class="at">Am =</span> Am, <span class="at">Dm =</span> Dm, <span class="at">Hm =</span> Hm, <span class="at">Fm =</span> Fm, <span class="at">Qm =</span> Qm, <span class="at">Rm =</span> Rm))</span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a><span class="co">#Log the data</span></span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a>data.log <span class="ot">=</span> <span class="fu">copy</span>(data)</span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a>data.log[, <span class="fu">c</span>(vars) <span class="sc">:</span><span class="er">=</span> <span class="fu">lapply</span>(.SD, log), .SDcols <span class="ot">=</span> <span class="fu">c</span>(vars)]</span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a><span class="co">#Difference the data</span></span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>data.logd <span class="ot">=</span> <span class="fu">copy</span>(data.log)</span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a>data.logd[, <span class="fu">c</span>(vars) <span class="sc">:</span><span class="er">=</span> <span class="fu">lapply</span>(.SD, <span class="cf">function</span>(x){</span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a>  x <span class="sc">-</span> <span class="fu">shift</span>(x, <span class="at">type =</span> <span class="st">&quot;lag&quot;</span>, <span class="at">n =</span> <span class="dv">1</span>)</span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a>}), .SDcols <span class="ot">=</span> <span class="fu">c</span>(vars)]</span>
+<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a><span class="co">#Standardize the data</span></span>
+<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a>data.logds <span class="ot">=</span> <span class="fu">copy</span>(data.logd)</span>
+<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a>data.logds[, <span class="fu">c</span>(vars) <span class="sc">:</span><span class="er">=</span> <span class="fu">lapply</span>(.SD, scale, <span class="at">scale =</span> <span class="cn">FALSE</span>), .SDcols <span class="ot">=</span> <span class="fu">c</span>(vars)]</span>
+<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a><span class="co">#Transpose the data</span></span>
+<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>yt <span class="ot">=</span> <span class="fu">t</span>(data.logds[, <span class="fu">c</span>(vars), <span class="at">with =</span> <span class="cn">FALSE</span>])</span>
+<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a><span class="co">#Set the initial values</span></span>
+<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a>init <span class="ot">=</span> <span class="fu">c</span>(<span class="at">phi1 =</span> <span class="fl">0.8588</span>, <span class="at">phi2 =</span> <span class="sc">-</span><span class="fl">0.1526</span>, </span>
+<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a>         <span class="at">psi_1.1 =</span> <span class="sc">-</span><span class="fl">0.1079</span>, <span class="at">psi_1.2 =</span> <span class="sc">-</span><span class="fl">0.1415</span>,</span>
+<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a>         <span class="at">psi_2.1 =</span> <span class="sc">-</span><span class="fl">0.3166</span>, <span class="at">psi_2.2 =</span> <span class="sc">-</span><span class="fl">0.0756</span>,</span>
+<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a>         <span class="at">psi_3.1 =</span> <span class="sc">-</span><span class="fl">0.3994</span>, <span class="at">psi_3.2 =</span> <span class="sc">-</span><span class="fl">0.2028</span>,</span>
+<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a>         <span class="at">psi_4.1 =</span> <span class="sc">-</span><span class="fl">0.0370</span>, <span class="at">psi_4.2 =</span> <span class="fl">0.3646</span>,</span>
+<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a>         <span class="at">gamma_1.0 =</span> <span class="fl">0.0064</span>, <span class="at">gamma_1.1 =</span> <span class="sc">-</span><span class="fl">0.0020</span>,</span>
+<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a>         <span class="at">gamma_2.0 =</span> <span class="fl">0.0018</span>, </span>
+<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a>         <span class="at">gamma_3.0 =</span> <span class="fl">0.0059</span>, <span class="at">gamma_3.1 =</span> <span class="sc">-</span><span class="fl">0.0027</span>,</span>
+<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a>         <span class="at">gamma_4.0 =</span> <span class="fl">0.0014</span>, <span class="at">gamma_4.1 =</span> <span class="sc">-</span><span class="fl">0.0004</span>, <span class="at">gamma_4.2 =</span> <span class="fl">0.0001</span>, <span class="at">gamma_4.3 =</span> <span class="fl">0.0004</span>,</span>
+<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a>         <span class="at">sigma_1 =</span> <span class="fl">0.0049</span>, <span class="at">sigma_2 =</span> <span class="fl">0.0056</span>, <span class="at">sigma_3 =</span> <span class="fl">0.0077</span>, <span class="at">sigma_4 =</span> <span class="fl">0.0013</span>)</span>
+<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a><span class="co">#Set the constraints</span></span>
+<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a>ineqA <span class="ot">=</span> <span class="fu">matrix</span>(<span class="dv">0</span>, <span class="at">nrow =</span> <span class="dv">14</span>, </span>
+<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a>               <span class="at">ncol =</span> <span class="fu">length</span>(init), <span class="at">dimnames =</span> <span class="fu">list</span>(<span class="cn">NULL</span>, <span class="fu">names</span>(init)))</span>
+<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a><span class="co">#Stationarity constraints</span></span>
+<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a>ineqA[<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="fu">c</span>(<span class="st">&quot;phi1&quot;</span>, <span class="st">&quot;phi2&quot;</span>)] <span class="ot">=</span> <span class="fu">rbind</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>), <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>))</span>
+<span id="cb3-114"><a href="#cb3-114" aria-hidden="true" tabindex="-1"></a>ineqA[<span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">4</span>), <span class="fu">grepl</span>(<span class="st">&quot;psi_1&quot;</span>, <span class="fu">colnames</span>(ineqA))] <span class="ot">=</span> <span class="fu">rbind</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>), <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>))</span>
+<span id="cb3-115"><a href="#cb3-115" aria-hidden="true" tabindex="-1"></a>ineqA[<span class="fu">c</span>(<span class="dv">5</span>, <span class="dv">6</span>), <span class="fu">grepl</span>(<span class="st">&quot;psi_2&quot;</span>, <span class="fu">colnames</span>(ineqA))] <span class="ot">=</span> <span class="fu">rbind</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>), <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>))</span>
+<span id="cb3-116"><a href="#cb3-116" aria-hidden="true" tabindex="-1"></a>ineqA[<span class="fu">c</span>(<span class="dv">7</span>, <span class="dv">8</span>), <span class="fu">grepl</span>(<span class="st">&quot;psi_3&quot;</span>, <span class="fu">colnames</span>(ineqA))] <span class="ot">=</span> <span class="fu">rbind</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>), <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>))</span>
+<span id="cb3-117"><a href="#cb3-117" aria-hidden="true" tabindex="-1"></a>ineqA[<span class="fu">c</span>(<span class="dv">9</span>, <span class="dv">10</span>), <span class="fu">grepl</span>(<span class="st">&quot;psi_4&quot;</span>, <span class="fu">colnames</span>(ineqA))] <span class="ot">=</span> <span class="fu">rbind</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>), <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>))</span>
+<span id="cb3-118"><a href="#cb3-118" aria-hidden="true" tabindex="-1"></a><span class="co">#Non-negativity constraints</span></span>
+<span id="cb3-119"><a href="#cb3-119" aria-hidden="true" tabindex="-1"></a><span class="fu">diag</span>(ineqA[<span class="fu">c</span>(<span class="dv">11</span>, <span class="dv">12</span>, <span class="dv">13</span>, <span class="dv">14</span>), <span class="fu">grepl</span>(<span class="st">&quot;sigma_&quot;</span>, <span class="fu">colnames</span>(ineqA))]) <span class="ot">=</span> <span class="dv">1</span></span>
+<span id="cb3-120"><a href="#cb3-120" aria-hidden="true" tabindex="-1"></a>ineqB <span class="ot">=</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="fu">rep</span>(<span class="dv">1</span>, <span class="dv">10</span>), </span>
+<span id="cb3-121"><a href="#cb3-121" aria-hidden="true" tabindex="-1"></a>                 <span class="fu">rep</span>(<span class="dv">0</span>, <span class="dv">4</span>)), <span class="at">nrow =</span> <span class="fu">nrow</span>(ineqA), <span class="at">ncol =</span> <span class="dv">1</span>)</span>
+<span id="cb3-122"><a href="#cb3-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a><span class="co">#Define the objective function</span></span>
+<span id="cb3-124"><a href="#cb3-124" aria-hidden="true" tabindex="-1"></a>objective <span class="ot">=</span> <span class="cf">function</span>(par, yt){</span>
+<span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a>  ssm <span class="ot">=</span> <span class="fu">dcf_ssm</span>(par, yt)</span>
+<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">kalman_filter</span>(ssm, yt, <span class="at">smooth =</span> <span class="cn">FALSE</span>)<span class="sc">$</span>lnl)</span>
+<span id="cb3-127"><a href="#cb3-127" aria-hidden="true" tabindex="-1"></a>}</span>
 <span id="cb3-128"><a href="#cb3-128" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a><span class="co">#Set the objective function</span></span>
-<span id="cb3-130"><a href="#cb3-130" aria-hidden="true" tabindex="-1"></a>objective <span class="ot">=</span> <span class="cf">function</span>(par, data){</span>
-<span id="cb3-131"><a href="#cb3-131" aria-hidden="true" tabindex="-1"></a>  ssm <span class="ot">=</span> <span class="fu">yc_ssm</span>(par, <span class="fu">unique</span>(data<span class="sc">$</span>maturity))</span>
-<span id="cb3-132"><a href="#cb3-132" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">kalman_lik</span>(ssm, yt))</span>
-<span id="cb3-133"><a href="#cb3-133" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a><span class="co">#Solve the model</span></span>
-<span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a>solve <span class="ot">=</span> <span class="fu">maxLik</span>(<span class="at">logLik =</span> objective,</span>
-<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a>               <span class="at">start =</span> init, <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>,</span>
-<span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a>               <span class="at">finalHessian =</span> <span class="cn">FALSE</span>, <span class="at">hess =</span> <span class="cn">NULL</span>,</span>
-<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a>               <span class="at">control =</span> <span class="fu">list</span>(<span class="at">printLevel =</span> <span class="dv">2</span>, <span class="at">iterlim =</span> <span class="dv">10000</span>), </span>
-<span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a>               <span class="at">constraints =</span> <span class="fu">list</span>(<span class="at">ineqA =</span> ineqA, <span class="at">ineqB =</span> ineqB), </span>
-<span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a>               <span class="at">data =</span> treasuries, <span class="at">fixed =</span> fixed)</span>
+<span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a><span class="co">#Solve the model</span></span>
+<span id="cb3-130"><a href="#cb3-130" aria-hidden="true" tabindex="-1"></a>solve <span class="ot">=</span> <span class="fu">maxLik</span>(<span class="at">logLik =</span> objective, <span class="at">start =</span> init, <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>, </span>
+<span id="cb3-131"><a href="#cb3-131" aria-hidden="true" tabindex="-1"></a>               <span class="at">finalHessian =</span> <span class="cn">FALSE</span>, <span class="at">hess =</span> <span class="cn">NULL</span>, </span>
+<span id="cb3-132"><a href="#cb3-132" aria-hidden="true" tabindex="-1"></a>               <span class="at">control =</span> <span class="fu">list</span>(<span class="at">printLevel =</span> <span class="dv">2</span>, <span class="at">iterlim =</span> <span class="dv">10000</span>), </span>
+<span id="cb3-133"><a href="#cb3-133" aria-hidden="true" tabindex="-1"></a>               <span class="at">constraints =</span> <span class="fu">list</span>(<span class="at">ineqA =</span> ineqA, <span class="at">ineqB =</span> ineqB), </span>
+<span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a>               <span class="at">yt =</span> yt)</span>
+<span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the estimated state space model</span></span>
+<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a>ssm <span class="ot">=</span> <span class="fu">dcf_ssm</span>(solve<span class="sc">$</span>estimate, yt)</span>
+<span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the column means and standard deviations</span></span>
+<span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a>M <span class="ot">=</span> <span class="fu">matrix</span>(<span class="fu">unlist</span>(data.logd[, <span class="fu">lapply</span>(.SD, mean, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), <span class="at">.SDcols =</span> <span class="fu">c</span>(vars)]), </span>
+<span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a>               <span class="at">ncol =</span> <span class="dv">1</span>, <span class="at">dimnames =</span> <span class="fu">list</span>(vars, <span class="cn">NULL</span>))</span>
 <span id="cb3-142"><a href="#cb3-142" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the estimated state space model</span></span>
-<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a>ssm <span class="ot">=</span> <span class="fu">yc_ssm</span>(solve<span class="sc">$</span>estimate, tau)</span>
-<span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a><span class="co">#Filter the data with the model</span></span>
-<span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a>filter <span class="ot">=</span> <span class="fu">kalman_filter</span>(ssm, yt, <span class="at">smooth =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the estimated unobserved factors</span></span>
-<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a>B_tt <span class="ot">=</span> <span class="fu">data.table</span>(<span class="fu">t</span>(filter[[<span class="st">&quot;B_tt&quot;</span>]]))[, <span class="st">&quot;date&quot;</span> <span class="sc">:</span><span class="er">=</span> <span class="fu">unique</span>(treasuries<span class="sc">$</span>date)]</span>
-<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(B_tt)[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>] <span class="ot">=</span> <span class="fu">c</span>(<span class="st">&quot;level&quot;</span>, <span class="st">&quot;slope&quot;</span>, <span class="st">&quot;curvature&quot;</span>)</span>
+<span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the coefficient matrices</span></span>
+<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a>Hm <span class="ot">=</span> ssm[[<span class="st">&quot;Hm&quot;</span>]]</span>
+<span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a>Fm <span class="ot">=</span> ssm[[<span class="st">&quot;Fm&quot;</span>]]</span>
+<span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a><span class="co">#Final K_t is approximation to steady state K</span></span>
+<span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a>filter <span class="ot">=</span> <span class="fu">kalman_filter</span>(ssm, yt, <span class="at">smooth =</span> T)</span>
+<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a>K <span class="ot">=</span> filter<span class="sc">$</span>K_t[,, <span class="fu">dim</span>(filter<span class="sc">$</span>K_t)[<span class="dv">3</span>]]</span>
+<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a>W <span class="ot">=</span> <span class="fu">solve</span>(<span class="fu">diag</span>(<span class="fu">nrow</span>(K)) <span class="sc">-</span> (<span class="fu">diag</span>(<span class="fu">nrow</span>(K)) <span class="sc">-</span> K <span class="sc">%*%</span> Hm) <span class="sc">%*%</span> Fm) <span class="sc">%*%</span> K</span>
+<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a>d <span class="ot">=</span> (W <span class="sc">%*%</span> M)[<span class="dv">1</span>, <span class="dv">1</span>]</span>
 <span id="cb3-152"><a href="#cb3-152" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the estimated yields</span></span>
-<span id="cb3-154"><a href="#cb3-154" aria-hidden="true" tabindex="-1"></a>y_tt <span class="ot">=</span> <span class="fu">data.table</span>(<span class="fu">t</span>(filter[[<span class="st">&quot;y_tt&quot;</span>]]))[, <span class="st">&quot;date&quot;</span> <span class="sc">:</span><span class="er">=</span> <span class="fu">unique</span>(treasuries<span class="sc">$</span>date)]</span>
-<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(y_tt)[<span class="dv">1</span><span class="sc">:</span>(<span class="fu">ncol</span>(y_tt) <span class="sc">-</span> <span class="dv">1</span>)] <span class="ot">=</span> tau</span>
+<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a><span class="co">#Get the intercept terms</span></span>
+<span id="cb3-154"><a href="#cb3-154" aria-hidden="true" tabindex="-1"></a>gamma <span class="ot">=</span> Hm[, <span class="fu">grepl</span>(<span class="st">&quot;ct&quot;</span>, <span class="fu">colnames</span>(Hm))]</span>
+<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a>D <span class="ot">=</span> M <span class="sc">-</span> gamma <span class="sc">%*%</span> <span class="fu">matrix</span>(<span class="fu">rep</span>(d, <span class="fu">ncol</span>(gamma)))</span>
 <span id="cb3-156"><a href="#cb3-156" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a><span class="co">#Plot the data</span></span>
-<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a>g1 <span class="ot">=</span> <span class="fu">ggplot</span>(treasuries, <span class="at">id.vars =</span> <span class="st">&quot;date&quot;</span>) <span class="sc">+</span> </span>
-<span id="cb3-159"><a href="#cb3-159" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> value, <span class="at">group =</span> <span class="fu">factor</span>(maturity), <span class="at">color =</span> <span class="fu">factor</span>(maturity))) <span class="sc">+</span> </span>
-<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="sc">+</span></span>
-<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Actual Treasury Yields&quot;</span>, <span class="at">x =</span> <span class="st">&quot;&quot;</span>, <span class="at">y =</span> <span class="st">&quot;value&quot;</span>) <span class="sc">+</span> </span>
-<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>))</span>
-<span id="cb3-163"><a href="#cb3-163" aria-hidden="true" tabindex="-1"></a>g2 <span class="ot">=</span> <span class="fu">ggplot</span>(<span class="fu">melt</span>(y_tt, <span class="at">id.vars =</span> <span class="st">&quot;date&quot;</span>)) <span class="sc">+</span> </span>
-<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> value, <span class="at">group =</span> variable, <span class="at">color =</span> variable)) <span class="sc">+</span> </span>
-<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="sc">+</span></span>
-<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Estimated Treasury Yields&quot;</span>, <span class="at">x =</span> <span class="st">&quot;&quot;</span>, <span class="at">y =</span> <span class="st">&quot;value&quot;</span>) <span class="sc">+</span> </span>
-<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>))</span>
-<span id="cb3-168"><a href="#cb3-168" aria-hidden="true" tabindex="-1"></a>g3 <span class="ot">=</span> <span class="fu">ggplot</span>(<span class="fu">melt</span>(B_tt, <span class="at">id.vars =</span> <span class="st">&quot;date&quot;</span>)) <span class="sc">+</span> </span>
-<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> value, <span class="at">group =</span> variable, <span class="at">color =</span> variable)) <span class="sc">+</span> </span>
-<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="sc">+</span></span>
-<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Estimated Factors&quot;</span>, <span class="at">x =</span> <span class="st">&quot;&quot;</span>, <span class="at">y =</span> <span class="st">&quot;value&quot;</span>) <span class="sc">+</span> </span>
-<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>))</span>
-<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(g1, g2, g3, <span class="at">layout_matrix =</span> <span class="fu">rbind</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>), <span class="fu">c</span>(<span class="dv">3</span>, <span class="dv">3</span>)))</span></code></pre></div>
+<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a><span class="co">#Initialize first element of the dynamic common factor</span></span>
+<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a>Y1 <span class="ot">=</span> <span class="fu">t</span>(data.log[, <span class="fu">c</span>(vars), <span class="at">with =</span> F][<span class="dv">1</span>, ])</span>
+<span id="cb3-159"><a href="#cb3-159" aria-hidden="true" tabindex="-1"></a>initC <span class="ot">=</span> <span class="cf">function</span>(par){</span>
+<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(<span class="fu">sum</span>((Y1 <span class="sc">-</span> D <span class="sc">-</span> gamma <span class="sc">%*%</span> par)<span class="sc">^</span><span class="dv">2</span>))</span>
+<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a>C10 <span class="ot">=</span> <span class="fu">optim</span>(<span class="at">par =</span> Y1, <span class="at">fn =</span> initC, <span class="at">method =</span> <span class="st">&quot;BFGS&quot;</span>, <span class="at">control =</span> <span class="fu">list</span>(<span class="at">trace =</span> <span class="cn">FALSE</span>))<span class="sc">$</span>par[<span class="dv">1</span>]</span>
+<span id="cb3-163"><a href="#cb3-163" aria-hidden="true" tabindex="-1"></a>Ctt <span class="ot">=</span> <span class="fu">rep</span>(C10, <span class="fu">ncol</span>(yt))</span>
+<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a><span class="co">#Build the rest of the level of the dynamic common factor</span></span>
+<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a>ctt <span class="ot">=</span> filter<span class="sc">$</span>B_tt[<span class="fu">which</span>(<span class="fu">rownames</span>(Fm) <span class="sc">==</span> <span class="st">&quot;ct.0&quot;</span>), ]</span>
+<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(j <span class="cf">in</span> <span class="dv">2</span><span class="sc">:</span><span class="fu">length</span>(Ctt)){</span>
+<span id="cb3-168"><a href="#cb3-168" aria-hidden="true" tabindex="-1"></a>  Ctt[j] <span class="ot">=</span> ctt[j] <span class="sc">+</span> Ctt[j <span class="sc">-</span> <span class="dv">1</span>] <span class="sc">+</span> <span class="fu">c</span>(d)</span>
+<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a>Ctt <span class="ot">=</span> <span class="fu">data.table</span>(<span class="at">date =</span> data<span class="sc">$</span>date, <span class="at">dcf =</span> Ctt, <span class="at">d.dcf =</span> ctt)</span>
+<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a><span class="co">#Plot the outputs</span></span>
+<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a>g1 <span class="ot">=</span> <span class="fu">ggplot</span>(<span class="fu">melt</span>(data.log, <span class="at">id.vars =</span> <span class="st">&quot;date&quot;</span>)[, <span class="st">&quot;value&quot;</span> <span class="sc">:</span><span class="er">=</span> <span class="fu">scale</span>(value), <span class="at">by =</span> <span class="st">&quot;variable&quot;</span>]) <span class="sc">+</span> </span>
+<span id="cb3-174"><a href="#cb3-174" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Data&quot;</span>, <span class="at">subtitle =</span> <span class="st">&quot;Log Levels (Rescaled)&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-175"><a href="#cb3-175" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">name =</span> <span class="st">&quot;Value&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-176"><a href="#cb3-176" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_date</span>(<span class="at">name =</span> <span class="st">&quot;&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-177"><a href="#cb3-177" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> value, <span class="at">group =</span> variable, <span class="at">color =</span> variable)) <span class="sc">+</span> </span>
+<span id="cb3-178"><a href="#cb3-178" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="sc">+</span> <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>))</span>
+<span id="cb3-179"><a href="#cb3-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-180"><a href="#cb3-180" aria-hidden="true" tabindex="-1"></a>g2 <span class="ot">=</span> <span class="fu">ggplot</span>( <span class="fu">melt</span>(data.logds, <span class="at">id.vars =</span> <span class="st">&quot;date&quot;</span>)) <span class="sc">+</span> </span>
+<span id="cb3-181"><a href="#cb3-181" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Data&quot;</span>, <span class="at">subtitle =</span> <span class="st">&quot;Log Differenced &amp; Standardized&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-182"><a href="#cb3-182" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">name =</span> <span class="st">&quot;Value&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-183"><a href="#cb3-183" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_date</span>(<span class="at">name =</span> <span class="st">&quot;&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-184"><a href="#cb3-184" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">&quot;black&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-185"><a href="#cb3-185" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> value, <span class="at">group =</span> variable, <span class="at">color =</span> variable)) <span class="sc">+</span> </span>
+<span id="cb3-186"><a href="#cb3-186" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="sc">+</span> <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>))</span>
+<span id="cb3-187"><a href="#cb3-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-188"><a href="#cb3-188" aria-hidden="true" tabindex="-1"></a>g3 <span class="ot">=</span> <span class="fu">ggplot</span>(<span class="fu">melt</span>(Ctt, <span class="at">id.vars =</span> <span class="st">&quot;date&quot;</span>)[variable <span class="sc">==</span> <span class="st">&quot;dcf&quot;</span>, ]) <span class="sc">+</span>  </span>
+<span id="cb3-189"><a href="#cb3-189" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Dynamic Common Factor&quot;</span>, <span class="at">subtitle =</span> <span class="st">&quot;Levels&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-190"><a href="#cb3-190" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_date</span>(<span class="at">name =</span> <span class="st">&quot;&quot;</span>) <span class="sc">+</span></span>
+<span id="cb3-191"><a href="#cb3-191" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">&quot;grey&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-192"><a href="#cb3-192" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> value, <span class="at">group =</span> variable, <span class="at">color =</span> variable)) <span class="sc">+</span> </span>
+<span id="cb3-193"><a href="#cb3-193" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="sc">+</span> <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="st">&quot;black&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-194"><a href="#cb3-194" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>), <span class="at">fill =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>)) <span class="sc">+</span> </span>
+<span id="cb3-195"><a href="#cb3-195" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">name =</span> <span class="st">&quot;Value&quot;</span>, <span class="at">limits =</span> <span class="fu">range</span>(Ctt<span class="sc">$</span>dcf, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb3-196"><a href="#cb3-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-197"><a href="#cb3-197" aria-hidden="true" tabindex="-1"></a>g4 <span class="ot">=</span> <span class="fu">ggplot</span>(<span class="fu">melt</span>(Ctt, <span class="at">id.vars =</span> <span class="st">&quot;date&quot;</span>)[variable <span class="sc">==</span> <span class="st">&quot;d.dcf&quot;</span>, ]) <span class="sc">+</span>  </span>
+<span id="cb3-198"><a href="#cb3-198" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">&quot;Dynamic Common Factor&quot;</span>, <span class="at">subtitle =</span> <span class="st">&quot;Differenced&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-199"><a href="#cb3-199" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_date</span>(<span class="at">name =</span> <span class="st">&quot;&quot;</span>) <span class="sc">+</span></span>
+<span id="cb3-200"><a href="#cb3-200" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">&quot;grey&quot;</span>) <span class="sc">+</span> </span>
+<span id="cb3-201"><a href="#cb3-201" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_line</span>(<span class="fu">aes</span>(<span class="at">x =</span> date, <span class="at">y =</span> value, <span class="at">group =</span> variable, <span class="at">color =</span> variable)) <span class="sc">+</span> </span>
+<span id="cb3-202"><a href="#cb3-202" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> <span class="fu">theme</span>(<span class="at">legend.position =</span> <span class="st">&quot;bottom&quot;</span>) <span class="sc">+</span> <span class="fu">scale_color_manual</span>(<span class="at">values =</span> <span class="st">&quot;black&quot;</span>) <span class="sc">+</span></span>
+<span id="cb3-203"><a href="#cb3-203" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>), <span class="at">fill =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="cn">NULL</span>)) <span class="sc">+</span> </span>
+<span id="cb3-204"><a href="#cb3-204" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">name =</span> <span class="st">&quot;Value&quot;</span>, <span class="at">limits =</span> <span class="fu">range</span>(Ctt<span class="sc">$</span>d.dcf, <span class="at">na.rm =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb3-205"><a href="#cb3-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-206"><a href="#cb3-206" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(g1, g2, g3, g4, <span class="at">layout_matrix =</span> <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">3</span>, <span class="dv">2</span>, <span class="dv">4</span>), <span class="at">nrow =</span> <span class="dv">2</span>))</span></code></pre></div>
 </div>
 </div>
 
