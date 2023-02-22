@@ -1,3 +1,9 @@
+#kalmanfilter 2.0.1
+
+## Minor changes
+
+* Updated Rcpp Rginv function to matrix that has no positive values in SVD.
+
 #kalmanfilter 2.0
 
 ## Minor changes

@@ -8,8 +8,8 @@
 data.table with columns DATE, VARIABLE, VALUE, and MATURITY 
 The data is monthly frequency with variables ip (industrial production), 
 gmyxpg (total personal income less transfer payments in 1987 dollars), 
-mtq (total manufacturing and trade sales in 1987 dollas), 
-lpnag (employees on nonagricultural payrolls), and
+mtq (total manufacturing and trade sales in 1987 dollars), 
+lpnag (employees on non-agricultural payrolls), and
 dcoinc (the coincident economic indicator)
 }
 \source{

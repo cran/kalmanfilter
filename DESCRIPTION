@@ -1,8 +1,8 @@
 Package: kalmanfilter
 Type: Package
 Title: Kalman Filter
-Version: 2.0.0
-Date: 2022-10-01
+Version: 2.0.1
+Date: 2023-02-01
 Authors@R: 
   c(person(given = "Alex", 
            family = "Hubbard", 
@@ -19,9 +19,9 @@ Suggests: data.table (>= 1.14.2), maxLik (>= 1.5-2), ggplot2 (>=
 VignetteBuilder: knitr
 Encoding: UTF-8
 NeedsCompilation: yes
-Packaged: 2022-09-21 16:52:56 UTC; alex.hubbard
+Packaged: 2023-02-22 17:39:25 UTC; alex.hubbard
 Author: Alex Hubbard [aut, cre]
 Maintainer: Alex Hubbard <hubbard.alex@gmail.com>
 Depends: R (>= 3.5.0)
 Repository: CRAN
-Date/Publication: 2022-09-21 17:10:11 UTC
+Date/Publication: 2023-02-22 19:40:02 UTC

@@ -18,8 +18,10 @@ arma::mat Rginv(const arma::mat& m){
   arma::mat U, V;
   arma::vec S;
   arma::svd(U, S, V, m, "dc");
-  arma::uvec Positive = arma::find(S > 1E-06 * S(1));
-  if(all(Positive)){
+  arma::uvec Positive = arma::find(S > 0.0);
+  if(Positive.size() == 0){
+    return arma::zeros(m.n_rows, m.n_cols);
+  }else if(all(Positive)){
     arma::mat D = diagmat(S);
     return V * (1/D * U.t());
   }else if(!any(Positive)){
@@ -204,6 +206,7 @@ Rcpp::List kalman_filter(Rcpp::List& ssm, const arma::mat& yt,
     //Prediction error conditional on t-1
     N_t.col(i) = yt.col(i) - Am - Hm * B_tl.col(i) - betaO * X_o.col(i); 
     F_t_inv = arma::zeros(F_t.slice(i).n_rows, F_t.slice(i).n_cols);
+
     if(!non_na_idx.is_empty()){
       //Variance of the prediction error conditional on t-1
       F_t.slice(i).submat(non_na_idx, non_na_idx) = Hm.rows(non_na_idx) * P_tl.slice(i) * Hm_t.cols(non_na_idx) + Rm.submat(non_na_idx, non_na_idx);
