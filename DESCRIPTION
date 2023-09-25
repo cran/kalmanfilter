@@ -1,8 +1,8 @@
 Package: kalmanfilter
 Type: Package
 Title: Kalman Filter
-Version: 2.0.1
-Date: 2023-02-01
+Version: 2.0.2
+Date: 2023-10-01
 Authors@R: 
   c(person(given = "Alex", 
            family = "Hubbard", 
@@ -13,15 +13,15 @@ Description: 'Rcpp' implementation of the multivariate Kalman filter for state s
 License: GPL (>= 2)
 Imports: Rcpp (>= 1.0.9)
 LinkingTo: Rcpp, RcppArmadillo
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 Suggests: data.table (>= 1.14.2), maxLik (>= 1.5-2), ggplot2 (>=
         3.3.6), gridExtra (>= 2.3), knitr, rmarkdown, testthat
 VignetteBuilder: knitr
 Encoding: UTF-8
 NeedsCompilation: yes
-Packaged: 2023-02-22 17:39:25 UTC; alex.hubbard
+Packaged: 2023-09-25 21:00:56 UTC; alex.hubbard
 Author: Alex Hubbard [aut, cre]
 Maintainer: Alex Hubbard <hubbard.alex@gmail.com>
 Depends: R (>= 3.5.0)
 Repository: CRAN
-Date/Publication: 2023-02-22 19:40:02 UTC
+Date/Publication: 2023-09-25 21:20:08 UTC
