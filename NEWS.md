@@ -1,4 +1,10 @@
-#kalmanfilter 2.0.2
+#kalmanfilter 2.1
+
+## Major changes
+
+* added kalman_filter_tvp for time varying parameters
+
+kalmanfilter 2.0.2
 
 ## Minor changes
 

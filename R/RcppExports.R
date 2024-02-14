@@ -74,8 +74,11 @@ contains <- function(s, L) {
 #' yt = dcast(treasuries, "date ~ maturity", value.var = "value")
 #' yt = t(yt[, 2:ncol(yt)])
 #' kf = kalman_filter(ssm, yt, smooth = TRUE)   
-#' @export
-kalman_filter <- function(ssm, yt, Xo = NULL, Xs = NULL, weight = NULL, smooth = FALSE) {
-    .Call(`_kalmanfilter_kalman_filter`, ssm, yt, Xo, Xs, weight, smooth)
+kalman_filter_cpp <- function(ssm, yt, Xo = NULL, Xs = NULL, weight = NULL, smooth = FALSE) {
+    .Call(`_kalmanfilter_kalman_filter_cpp`, ssm, yt, Xo, Xs, weight, smooth)
+}
+
+kalman_filter_tvp_cpp <- function(ssm, yt, Xo = NULL, Xs = NULL, weight = NULL, smooth = FALSE) {
+    .Call(`_kalmanfilter_kalman_filter_tvp_cpp`, ssm, yt, Xo, Xs, weight, smooth)
 }
 

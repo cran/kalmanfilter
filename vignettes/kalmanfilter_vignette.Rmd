@@ -295,6 +295,27 @@ g3 = ggplot(melt(B_tt, id.vars = "date")) +
 grid.arrange(g1, g2, g3, layout_matrix = rbind(c(1, 2), c(3, 3)))
 ```
 
+### With Time-Varying Parameters
+
+```{r}
+#Set the objective function
+objective = function(par){
+  ssm = yc_ssm(par, tau)
+  for(x in names(ssm)){
+    if(!x %in% c("B0", "P0")){
+      ssm[[x]] = array(ssm[[x]], dim = c(dim(ssm[[x]]), ncol(yt)))
+    }
+  }
+  return(kalman_filter(ssm, yt)$lnl)
+}
+
+#Solve the model
+solve = maxLik(logLik = objective, start = init, method = "BFGS",
+               finalHessian = FALSE, hess = NULL,
+               control = list(printLevel = 2, iterlim = 10000), 
+               constraints = list(ineqA = ineqA, ineqB = ineqB))
+```
+
 ## Stock and Watson Dynamic Common Factor Model
 
 ```{r}

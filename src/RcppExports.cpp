@@ -45,9 +45,9 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// kalman_filter
-Rcpp::List kalman_filter(Rcpp::List& ssm, const arma::mat& yt, Rcpp::Nullable<Rcpp::NumericMatrix> Xo, Rcpp::Nullable<Rcpp::NumericMatrix> Xs, Rcpp::Nullable<Rcpp::NumericMatrix> weight, bool smooth);
-RcppExport SEXP _kalmanfilter_kalman_filter(SEXP ssmSEXP, SEXP ytSEXP, SEXP XoSEXP, SEXP XsSEXP, SEXP weightSEXP, SEXP smoothSEXP) {
+// kalman_filter_cpp
+Rcpp::List kalman_filter_cpp(Rcpp::List& ssm, const arma::mat& yt, Rcpp::Nullable<Rcpp::NumericMatrix> Xo, Rcpp::Nullable<Rcpp::NumericMatrix> Xs, Rcpp::Nullable<Rcpp::NumericMatrix> weight, bool smooth);
+RcppExport SEXP _kalmanfilter_kalman_filter_cpp(SEXP ssmSEXP, SEXP ytSEXP, SEXP XoSEXP, SEXP XsSEXP, SEXP weightSEXP, SEXP smoothSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -57,7 +57,23 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericMatrix> >::type Xs(XsSEXP);
     Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericMatrix> >::type weight(weightSEXP);
     Rcpp::traits::input_parameter< bool >::type smooth(smoothSEXP);
-    rcpp_result_gen = Rcpp::wrap(kalman_filter(ssm, yt, Xo, Xs, weight, smooth));
+    rcpp_result_gen = Rcpp::wrap(kalman_filter_cpp(ssm, yt, Xo, Xs, weight, smooth));
+    return rcpp_result_gen;
+END_RCPP
+}
+// kalman_filter_tvp_cpp
+Rcpp::List kalman_filter_tvp_cpp(Rcpp::List& ssm, const arma::mat& yt, Rcpp::Nullable<Rcpp::NumericMatrix> Xo, Rcpp::Nullable<Rcpp::NumericMatrix> Xs, Rcpp::Nullable<Rcpp::NumericMatrix> weight, bool smooth);
+RcppExport SEXP _kalmanfilter_kalman_filter_tvp_cpp(SEXP ssmSEXP, SEXP ytSEXP, SEXP XoSEXP, SEXP XsSEXP, SEXP weightSEXP, SEXP smoothSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List& >::type ssm(ssmSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type yt(ytSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericMatrix> >::type Xo(XoSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericMatrix> >::type Xs(XsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericMatrix> >::type weight(weightSEXP);
+    Rcpp::traits::input_parameter< bool >::type smooth(smoothSEXP);
+    rcpp_result_gen = Rcpp::wrap(kalman_filter_tvp_cpp(ssm, yt, Xo, Xs, weight, smooth));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -66,7 +82,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_kalmanfilter_Rginv", (DL_FUNC) &_kalmanfilter_Rginv, 1},
     {"_kalmanfilter_gen_inv", (DL_FUNC) &_kalmanfilter_gen_inv, 1},
     {"_kalmanfilter_contains", (DL_FUNC) &_kalmanfilter_contains, 2},
-    {"_kalmanfilter_kalman_filter", (DL_FUNC) &_kalmanfilter_kalman_filter, 6},
+    {"_kalmanfilter_kalman_filter_cpp", (DL_FUNC) &_kalmanfilter_kalman_filter_cpp, 6},
+    {"_kalmanfilter_kalman_filter_tvp_cpp", (DL_FUNC) &_kalmanfilter_kalman_filter_tvp_cpp, 6},
     {NULL, NULL, 0}
 };
 

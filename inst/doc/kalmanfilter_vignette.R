@@ -152,6 +152,24 @@ knitr::opts_chunk$set(
 #  grid.arrange(g1, g2, g3, layout_matrix = rbind(c(1, 2), c(3, 3)))
 
 ## -----------------------------------------------------------------------------
+#  #Set the objective function
+#  objective = function(par){
+#    ssm = yc_ssm(par, tau)
+#    for(x in names(ssm)){
+#      if(!x %in% c("B0", "P0")){
+#        ssm[[x]] = array(ssm[[x]], dim = c(dim(ssm[[x]]), ncol(yt)))
+#      }
+#    }
+#    return(kalman_filter(ssm, yt)$lnl)
+#  }
+#  
+#  #Solve the model
+#  solve = maxLik(logLik = objective, start = init, method = "BFGS",
+#                 finalHessian = FALSE, hess = NULL,
+#                 control = list(printLevel = 2, iterlim = 10000),
+#                 constraints = list(ineqA = ineqA, ineqB = ineqB))
+
+## -----------------------------------------------------------------------------
 #  library(kalmanfilter)
 #  library(data.table)
 #  library(maxLik)

@@ -6,7 +6,7 @@
 \alias{kalmanfilter-package}
 \title{kalmanfilter: Kalman Filter}
 \description{
-'Rcpp' implementation of the multivariate Kalman filter for state space models that can handle missing values and exogenous data in the observation and state equations. Kim, Chang-Jin and Charles R. Nelson (1999) "State-Space Models with Regime Switching: Classical and Gibbs-Sampling Approaches with Applications" \doi{10.7551/mitpress/6444.001.0001}\url{http://econ.korea.ac.kr/~cjkim/}.
+'Rcpp' implementation of the multivariate Kalman filter for state space models that can handle missing values and exogenous data in the observation and state equations. There is also a function to handle time varying parameters. Kim, Chang-Jin and Charles R. Nelson (1999) "State-Space Models with Regime Switching: Classical and Gibbs-Sampling Approaches with Applications" \doi{10.7551/mitpress/6444.001.0001}\url{http://econ.korea.ac.kr/~cjkim/}.
 }
 \author{
 \strong{Maintainer}: Alex Hubbard \email{hubbard.alex@gmail.com}
