@@ -1,9 +1,9 @@
-39d8ebb66db825d1541c14ee21b7b12e *DESCRIPTION
+7707bd4435a4787dc83f9bcf4e212be7 *DESCRIPTION
 c970eaa728ef8b34adcb0a8365fd9a30 *NAMESPACE
-1a34fd0219562f32751aaa982254b380 *NEWS.md
+6b2b1f12049e6dcf0b24f5ffc14165aa *NEWS.md
 b8e385a6ed69a6f7849bb5c0611827ec *R/RcppExports.R
 32b4ef8e717e7b98f1d819dcf8ba6bbf *R/data.R
-7cb92731f0841df52defea4fb6285e6c *R/kalman_filter.R
+81e1b8ab5a11c2a0821be95836e6b257 *R/kalman_filter.R
 d53e7946dfb10cfa374297b754843f47 *R/kalmanfilter-package.R
 f01682ffd9d5582c0d3b8a226f3c2b16 *build/partial.rdb
 0ebebdf3a98182b3e917296c1cf87230 *build/vignette.rds
@@ -11,7 +11,7 @@ eaf234f60b4512bfdb290b8181517c6e *data/sw_dcf.RData
 8e9dbb3c348a5403fd9db99fa130377e *data/treasuries.RData
 9f48d705b573e48e03a40b6e6d1880b9 *inst/doc/kalmanfilter_vignette.R
 934e732828e413aa3dfc254ea90e897d *inst/doc/kalmanfilter_vignette.Rmd
-26682aaf0eaa012a4711aa37d36f7d27 *inst/doc/kalmanfilter_vignette.html
+46851984014b7f62825aa39ee1f7731b *inst/doc/kalmanfilter_vignette.html
 e6ae55d071390c42bc9cda073fc4c1c4 *man/Rginv.Rd
 6d368c758a3b671dc8ef1f61fa97c438 *man/contains.Rd
 4cbdaee3416a350a4b2ad6de313522fd *man/gen_inv.Rd

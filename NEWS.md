@@ -1,3 +1,9 @@
+#kalmanfilter 2.1.1 
+
+## Minor changes
+
+* added R function kalman_filter to auto select kalman_filter_cpp or kalman_filter_tvp_cpp
+
 #kalmanfilter 2.1
 
 ## Major changes

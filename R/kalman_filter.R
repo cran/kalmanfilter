@@ -89,17 +89,17 @@ kalman_filter = function(ssm, yt, Xo = NULL, Xs = NULL, weight = NULL, smooth = 
      all(sapply(ssm[c("Am", "Hm", "Rm", "Dm", "Fm", "Qm")], function(x){length(dim(x)) == 3}))){
     if(!is.null(Xo)){
       if(length(dim(ssm[["betaO"]])) != 3){
-        stop("ssm[['betaO']] must be an array containing a matrices with the 3rd dimension equal to ncol(yt).")
+        stop("ssm[['betaO']] must be an array containing matrices with the 3rd dimension equal to ncol(yt).")
       }
     }
     if(!is.null(Xs)){
       if(length(dim(ssm[["betaS"]])) != 3){
-        stop("ssm[['betaS']] must be an array containing a matrices with the 3rd dimension equal to ncol(yt).")
+        stop("ssm[['betaS']] must be an array containing matrices with the 3rd dimension equal to ncol(yt).")
       }
     }
     if(!all(sapply(ssm[c("Am", "Hm", "Rm", "Dm", "Fm", "Qm")], function(x){dim(x)[3] == ncol(yt)}))){
       stop("ssm[['Am']], ssm[['Hm']], ssm[['Rm']], ssm[['Dm']], ssm[['Fm']], and ssm[['Qm']] 
-          must be arrays containing matrics with the 3rd dimension equal to ncol(yt)")
+          must be arrays containing matrices with the 3rd dimension equal to ncol(yt)")
     }
     return(kalman_filter_tvp_cpp(ssm, yt, Xo, Xs, weight, smooth))
   }else if(all(sapply(ssm[c("Am", "Hm", "Rm", "Dm", "Fm", "Qm", "B0", "P0")], function(x){length(dim(x)) == 2}))){
