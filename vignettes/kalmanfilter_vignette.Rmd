@@ -253,7 +253,7 @@ yt = t(yt[, 2:ncol(yt)])
 #Set the objective function
 objective = function(par){
   ssm = yc_ssm(par, tau)
-  return(kalman_filter(ssm, yt,)$lnl)
+  return(kalman_filter(ssm, yt)$lnl)
 }
 
 #Solve the model
@@ -319,6 +319,7 @@ solve = maxLik(logLik = objective, start = init, method = "BFGS",
 ## Stock and Watson Dynamic Common Factor Model
 
 ```{r}
+#Note the outcome does not work as expected anymore
 library(kalmanfilter)
 library(data.table)
 library(maxLik)

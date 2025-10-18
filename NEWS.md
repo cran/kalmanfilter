@@ -1,3 +1,9 @@
+#kalmanfilter 2.2
+
+## Major changes
+
+* bug fix to kalman smoother
+
 #kalmanfilter 2.1.1 
 
 ## Minor changes
